@@ -39,6 +39,7 @@ Novo → Qualificado → Em negociação → Fechado → Perdido
 | `administradora` | string | Se fechado | Qual administradora o cliente contratou. |
 | `criado_em` | datetime | Auto | Timestamp de criação. |
 | `ultimo_contato` | datetime | Auto | Atualizado a cada interação. Base dos alertas. |
+| `observacoes` | string | Opcional | Texto livre do operador. O que foi discutido, contexto importante, informações que não cabem em campo estruturado. |
 | `historico` | array | Auto | Interações: {data, tipo, nota, proximo_passo}. Nunca deletar entradas. |
 
 ### Regra de deduplicação
@@ -82,3 +83,4 @@ Antes de cadastrar qualquer lead: verificar se o `whatsapp` já existe.
 4. Mensagem sugerida pelo Agente de Qualificação NUNCA é enviada automaticamente — operador aprova
 5. Status só muda após ação real — não antecipar etapas
 6. `ultimo_contato` atualiza a cada interação, incluindo as sugeridas pelo agente
+7. **O Agente de Qualificação registra a sugestão gerada no histórico do lead automaticamente após cada execução** — mesmo que o operador não aja, o histórico mostra que o agente avaliou o lead naquele dia

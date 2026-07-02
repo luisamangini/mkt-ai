@@ -67,7 +67,16 @@ Lead respondeu as 4 perguntas E tem:
 - `valor_carta` > 0 (qualquer valor, mesmo estimado)
 - `prazo_uso` definido
 
-→ Mover para status `qualificado`. Próximo passo: enviar simulação personalizada.
+→ Mover para status `qualificado`. Próximo passo contextual definido pelo Agente com base nas respostas:
+
+| Condição | Próximo passo sugerido |
+|---|---|
+| `prazo_uso: imediato` | Apresentar estratégia de lance embutido + calcular percentual necessário |
+| `prazo_uso: 1_ano` | Enviar simulação com carta no valor informado + opções de lance moderado |
+| `prazo_uso: 2_anos` ou `sem_pressa` | Enviar simulação focando na vantagem de não pagar juros + planejamento de longo prazo |
+| `conhece_consorcio: nao` | Antes da simulação: enviar explicação básica de como funciona o grupo |
+| `conhece_consorcio: sim` + `objetivo: patrimonio` | Apresentar estratégia patrimonial com múltiplas cartas / administradoras parceiras |
+| Qualquer qualificado | Registrar no histórico: "Lead qualificado. Próximo passo: [ação específica acima]" |
 
 ### Não qualificado (`qualificado: false`)
 - Não respondeu 2 ou mais perguntas essenciais
@@ -115,7 +124,7 @@ Oi [Nome]! Preparei a simulação que você pediu.
 Posso te mandar agora? É rapidinho, e fica mais fácil a gente conversar com os números na tela.
 ```
 
-### Lead qualificado — apresentar simulação
+### Lead qualificado — apresentar simulação (padrão)
 ```
 Oi [Nome]! Com base no que você me contou:
 • Objetivo: [objetivo]
@@ -123,6 +132,23 @@ Oi [Nome]! Com base no que você me contou:
 • Prazo: [prazo_uso]
 
 Preparei uma simulação para o seu caso. Posso te mandar agora?
+```
+
+### Lead qualificado — precisa de introdução ao produto primeiro (`conhece_consorcio: nao`)
+```
+Oi [Nome]! Antes de te mandar os números, deixa eu te explicar rapidinho como funciona.
+O consórcio é um grupo de pessoas que contribuem mensalmente para um fundo.
+Todo mês alguém recebe a carta de crédito — por sorteio ou por lance.
+Não tem juros — você paga só a taxa de administração.
+Com base no que você me contou, preparei uma simulação. Posso te mandar?
+```
+
+### Lead qualificado — estratégia patrimonial (`objetivo: patrimonio` + `conhece_consorcio: sim`)
+```
+Oi [Nome]! Com o seu perfil, consórcio pode ser uma estratégia interessante de aquisição de patrimônio.
+Com carta de R$ [valor], você consegue negociar o bem à vista — o que costuma gerar desconto na compra.
+Tenho algumas administradoras parceiras com boas condições para esse perfil.
+Posso te apresentar as opções?
 ```
 
 ### Lead em negociação parado há 5 dias
@@ -140,13 +166,16 @@ Estou à disposição para explicar qualquer ponto antes de você decidir.
   "lead_id": "string",
   "prioridade": "alta | media | baixa",
   "acao_sugerida": "instrução em linguagem natural para o operador",
+  "proximo_passo": "próximo passo contextual baseado nas respostas do roteiro (ex: apresentar administradoras parceiras)",
   "mensagem_reengajamento": "texto pronto para enviar (ou null)",
   "novo_status_sugerido": "qualificado | null",
+  "registrar_no_historico": "texto que o agente grava automaticamente no histórico do lead",
   "executar": false
 }
 ```
 
 O campo `executar` é sempre `false`. O operador lê a sugestão e age manualmente.
+O campo `registrar_no_historico` é gravado automaticamente pelo agente no CRM — independente da ação do operador.
 
 ---
 
