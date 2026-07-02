@@ -1,0 +1,1 @@
+# Dependências base do projeto
