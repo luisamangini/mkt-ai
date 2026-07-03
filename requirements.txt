@@ -1,1 +1,5 @@
 # Dependências base do projeto
+groq
+python-dotenv
+pydantic
+tavily-python
