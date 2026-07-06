@@ -18,3 +18,13 @@ class Relevancia(str, Enum):
 class StatusAgente(str, Enum):
     OK = "ok"
     FALHA = "falha"
+
+class FormatoConteudo(str, Enum):
+    REEL = "reel"
+    CARROSSEL = "carrossel"
+    STORIES = "stories"
+
+class StatusRevisao(str, Enum):
+    PENDENTE = "pendente"
+    APROVADO = "aprovado"
+    REPROVADO = "reprovado"

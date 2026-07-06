@@ -1,2 +1,4 @@
 {"timestamp": "2026-07-03T13:37:27.818894+00:00", "agent": "test_llm", "status": "ok", "resultado": "Teste core llm concluido", "erro": "", "metadata": {"provider": "groq"}}
 {"timestamp": "2026-07-03T20:25:52.401891+00:00", "agent": "research_agent", "status": "ok", "resultado": "3 temas encontrados", "erro": "", "metadata": {"data": "2026-07-03"}}
+{"timestamp": "2026-07-06T12:41:46.750048+00:00", "agent": "research_agent", "status": "ok", "resultado": "3 temas encontrados", "erro": "", "metadata": {"data": "2026-07-06"}}
+{"timestamp": "2026-07-06T12:42:02.376791+00:00", "agent": "content_agent", "status": "ok", "resultado": "REEL | Atualidades e Mercado | 'Alternativa ao Financiamento'", "erro": "", "metadata": {"data": "2026-07-06", "pilar": "Atualidades e Mercado", "formato": "reel", "compliance": true, "tema": "Consórcios de Veículos: Uma Alternativa ao Financiamento"}}
