@@ -35,3 +35,14 @@ class ContentOutput(BaseModel):
     revisao_humana: StatusRevisao = Field(default=StatusRevisao.PENDENTE)
 
     model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}}
+
+
+
+class ContentDiario(BaseModel):
+    """Agrupa todos os roteiros gerados no dia."""
+    data: str
+    gerado_em: datetime
+    total_roteiros: int
+    roteiros: list[ContentOutput]
+
+    model_config = {"json_encoders": {datetime: lambda v: v.isoformat()}}

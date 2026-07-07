@@ -12,3 +12,6 @@ venv/
 
 # macOS
 .DS_Store
+# Generated runtime files
+data/
+logs/

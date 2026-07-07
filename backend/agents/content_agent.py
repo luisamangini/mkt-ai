@@ -1,3 +1,4 @@
+# backend/agents/content_agent.py
 import json
 import os
 import sys
@@ -7,81 +8,74 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from backend.core.llm import get_completion
 from backend.core.logger import log_execution
-from schemas.content import ContentOutput, RoteiroConteudo, SlideCarrossel
+from schemas.content import ContentOutput, ContentDiario, RoteiroConteudo, SlideCarrossel
 from schemas.research import ResearchOutput, TemaResearch
 from backend.models.enums import FormatoConteudo, Pilar, StatusRevisao
 
 
-CALENDARIO = {
-    0: {"pilar": Pilar.ATUALIDADES_E_MERCADO, "formato": FormatoConteudo.REEL},
-    1: {"pilar": Pilar.MITOS_E_VERDADES, "formato": FormatoConteudo.REEL},
-    2: {"pilar": Pilar.EDUCACAO_FINANCEIRA, "formato": FormatoConteudo.CARROSSEL},
-    3: {"pilar": Pilar.PROVA_SOCIAL, "formato": FormatoConteudo.REEL},
-    4: {"pilar": Pilar.CONVERSAO, "formato": FormatoConteudo.STORIES},
+# ── Formato ideal por pilar ──────────────────────────────────────────────────
+# Cada pilar tem um formato natural — não depende do dia da semana
+FORMATO_POR_PILAR = {
+    Pilar.ATUALIDADES_E_MERCADO:  FormatoConteudo.REEL,       # react a notícia = reel
+    Pilar.MITOS_E_VERDADES:       FormatoConteudo.REEL,       # mito/verdade = reel
+    Pilar.EDUCACAO_FINANCEIRA:    FormatoConteudo.CARROSSEL,  # educação = carrossel
+    Pilar.PROVA_SOCIAL:           FormatoConteudo.REEL,       # depoimento = reel
+    Pilar.CONVERSAO:              FormatoConteudo.STORIES,    # captação = stories
 }
 
 
+# ── Helpers ──────────────────────────────────────────────────────────────────
 def _load_knowledge(filename: str) -> str:
     base = os.path.join(os.path.dirname(__file__), "..", "..", "knowledge")
     path = os.path.join(base, filename)
-
     try:
         with open(path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
-        return f"[arquivo nao encontrado: {filename}]"
+        return f"[arquivo não encontrado: {filename}]"
 
 
 def _load_research(data: str) -> ResearchOutput | None:
     path = os.path.join(
         os.path.dirname(__file__), "..", "..", "data", f"research_{data}.json"
     )
-
     if not os.path.exists(path):
         return None
-
     with open(path, "r", encoding="utf-8") as f:
         dados = json.load(f)
-
     return ResearchOutput(**dados)
 
 
-def _selecionar_tema(research: ResearchOutput, pilar: Pilar) -> TemaResearch:
-    for tema in research.temas:
-        if tema.pilar_sugerido == pilar:
-            return tema
-
-    return research.temas[0]
-
-
+# ── System prompt ─────────────────────────────────────────────────────────────
 def _build_system_prompt(pilar: Pilar, formato: FormatoConteudo) -> str:
-    tom = _load_knowledge("brand/tone_of_voice.md")
+    tom        = _load_knowledge("brand/tone_of_voice.md")
     guardrails = _load_knowledge("brand/compliance_guardrails.md")
-    formatos = _load_knowledge("content/formats.md")
+    formatos   = _load_knowledge("content/formats.md")
     hooks_ctas = _load_knowledge("content/hooks_and_ctas.md")
-    pilares = _load_knowledge("content/pillars_and_calendar.md")
+    pilares    = _load_knowledge("content/pillars_and_calendar.md")
 
     instrucao_formato = {
         FormatoConteudo.REEL: (
-            "Gere um roteiro de Reel com:\n"
-            "- HOOK: frase de impacto que para o scroll (0-3s)\n"
-            "- DESENVOLVIMENTO: corpo do conteudo em topicos (3-25s)\n"
-            "- CTA: chamada para acao unica e clara (25-30s)\n"
-            "O campo slides deve ser null."
+            "Gere um roteiro de REEL com:\n"
+            "- HOOK: frase de impacto que para o scroll (0-3s). Deve ser direta, provocadora, com dado concreto se possível.\n"
+            "- DESENVOLVIMENTO: 3 a 4 pontos objetivos (3-25s). Use apenas dados das notícias fornecidas — NUNCA invente percentuais ou estatísticas.\n"
+            "- CTA: chamada única e clara (25-30s). SEMPRE direcionar para comentário ou direct. NUNCA mencionar site ou link.\n"
+            "slides deve ser null."
         ),
         FormatoConteudo.CARROSSEL: (
-            "Gere um Carrossel com:\n"
-            "- HOOK: titulo da capa que faz parar\n"
-            "- DESENVOLVIMENTO: lista de pontos principais\n"
-            "- CTA: texto do slide final\n"
-            "- SLIDES: array com todos os slides numerados (capa + desenvolvimento + CTA)"
+            "Gere um roteiro de CARROSSEL com:\n"
+            "- HOOK: título da capa que faz parar o scroll.\n"
+            "- DESENVOLVIMENTO: lista dos pontos principais (1 por slide).\n"
+            "- CTA: texto do slide final.\n"
+            "- SLIDES: array completo e numerado — capa (slide 1) + desenvolvimento + slide final de CTA.\n"
+            "Cada slide deve ter texto enxuto, máximo 3 linhas."
         ),
         FormatoConteudo.STORIES: (
-            "Gere uma sequencia de Stories com:\n"
-            "- HOOK: primeira tela que captura atencao\n"
-            "- DESENVOLVIMENTO: ['enquete: pergunta + opcoes', 'caixinha: convite para pergunta']\n"
-            "- CTA: direcionamento ao direct\n"
-            "O campo slides deve ser null."
+            "Gere uma sequência de STORIES com:\n"
+            "- HOOK: primeira tela que captura atenção.\n"
+            "- DESENVOLVIMENTO: ['enquete com pergunta e duas opções', 'caixinha: convite para mandar dúvida'].\n"
+            "- CTA: direcionamento ao direct.\n"
+            "slides deve ser null."
         ),
     }
 
@@ -93,104 +87,74 @@ def _build_system_prompt(pilar: Pilar, formato: FormatoConteudo) -> str:
 ## GUARDRAILS — REGRAS INVIOLÁVEIS
 {guardrails[:1500]}
 
-## FATOS TÉCNICOS INVIOLÁVEIS SOBRE CONSÓRCIO — nunca contradizer
-- A taxa de administração do consórcio é FIXA em contrato. NÃO varia com a Selic.
-- O consórcio NÃO tem juros. Possui taxa de administração e pode ter fundo de reserva.
-- A Selic afeta principalmente o financiamento bancário, porque influencia os juros do crédito.
-- A Selic NÃO altera diretamente as parcelas de um consórcio já contratado.
-- Quando a Selic sobe, o consórcio pode ficar mais vantajoso em comparação ao financiamento, justamente porque não tem juros.
-- A contemplação ocorre por sorteio ou lance.
-- Lance NÃO garante contemplação.
-- O consorciado continua pagando parcelas mesmo após ser contemplado.
-- Todos os participantes de um grupo são contemplados ao longo do prazo, conforme as regras do contrato.
-- Taxas e condições variam por administradora. Ao citar valores, sempre deixar claro que é exemplo ou simulação.
-
 ## PILARES E CALENDÁRIO
 {pilares[:1500]}
 
 ## ESTRUTURA DOS FORMATOS
 {formatos[:1000]}
 
-## HOOKS E CTAs (use estes como referência direta)
+## HOOKS E CTAs
 {hooks_ctas[:1500]}
 
+## FATOS TÉCNICOS INVIOLÁVEIS — nunca contradizer
+- A taxa de administração do consórcio é FIXA em contrato. NÃO varia com a Selic.
+- O consórcio NÃO tem juros. Apenas taxa de administração + fundo de reserva.
+- Quando a Selic sobe, o financiamento fica mais caro — o consórcio fica MAIS vantajoso, não mais caro.
+- A contemplação ocorre por sorteio ou lance. Lance NÃO garante contemplação.
+- O consorciado continua pagando parcelas mesmo após ser contemplado.
+- Taxas variam por administradora — sempre mencionar isso ao citar valores.
+
+## EXEMPLO DE ROTEIRO BOM (referência de tom):
+HOOK: "A Selic mexeu — e o que isso muda pra quem quer comprar imóvel?"
+DESENVOLVIMENTO:
+- "Quando a Selic sobe, o financiamento fica mais caro. Os juros do banco seguem a Selic."
+- "No consórcio, a Selic não muda nada. Taxa de administração é fixa desde o contrato."
+- "Quanto mais a Selic sobe, mais vantajoso o consórcio fica em comparação."
+CTA: "Comenta 'SELIC' aqui que eu te explico o impacto no seu caso."
+
+## EXEMPLO DE ROTEIRO RUIM (nunca fazer):
+HOOK: "Você sabia que o mercado está mudando em 2026?"
+DESENVOLVIMENTO:
+- "Estudos mostram que 70% dos consumidores..." ← NUNCA invente percentuais sem fonte real
+- "O mercado está se transformando..." ← vago demais
+CTA: "Entre no nosso site para saber mais" ← NUNCA mencionar site
+
 ## TAREFA
-Pilar do dia: {pilar.value}
+Pilar: {pilar.value}
 Formato: {formato.value.upper()}
 
 {instrucao_formato[formato]}
 
-scripts = _load_knowledge("content/scripts_reference.md")
-
-## EXEMPLO DE REEL BOM (use como referência de tom e estrutura):
-
-HOOK: "A Selic mexeu — e o que isso muda pra quem quer comprar imóvel?"
-DESENVOLVIMENTO:
-- "Quando a Selic sobe, o financiamento fica mais caro. Os juros do banco seguem a Selic."
-- "No consórcio, a Selic não muda nada. Você paga só a taxa de administração — fixa desde o contrato."
-- "Então paradoxalmente: quanto mais a Selic sobe, mais o consórcio se torna vantajoso em comparação."
-CTA: "Quer entender como isso impacta o seu caso? Comenta 'SELIC' aqui."
-
-EXEMPLO DE REEL RUIM (nunca fazer assim):
-HOOK: "Você sabia que o mercado está mudando em 2026?"
-DESENVOLVIMENTO:
-- "Estudos mostram que 70% dos consumidores..." ← NUNCA invente percentuais sem fonte real
-- "O mercado está se transformando..." ← vago demais, não entrega valor
-CTA: "Entre no nosso site para saber mais" ← NUNCA mencionar site
-
-REGRA CRÍTICA: Use APENAS dados que vieram das notícias fornecidas. 
-Se não há dado concreto disponível, use a lógica do consórcio (sem juros, taxa fixa, contemplação por lance) — nunca invente percentuais.
-
-
-## REGRAS CRÍTICAS DE SAÍDA
-1. Responda APENAS com JSON válido. Sem markdown. Sem texto fora do JSON.
-2. O CTA NUNCA deve mencionar "site", "link na bio" ou "clique aqui". SEMPRE direcionar para comentário ou direct. Exemplos corretos: "Comenta SIMULAÇÃO aqui", "Me chama no direct", "Responde aqui: IMÓVEL ou CARRO".
-3. Use números concretos no desenvolvimento — valores em R$, percentuais, comparações reais.
-4. Tom direto e coloquial — como o Sandro falaria para um amigo, não como artigo de blog.
-5. Mínimo 8 hashtags relevantes para o nicho de consórcio no Brasil.
-6. compliance_checou deve ser true apenas se NENHUM guardrail foi violado.
-7. Nunca diga que a Selic aumenta a taxa de administração do consórcio.
-8. Nunca diga que consórcio tem juros.
-
 ## SAÍDA — JSON OBRIGATÓRIO
+Responda APENAS com JSON válido. Sem markdown. Sem texto fora do JSON.
+
 {{
-  "titulo_interno": "referência interna curta — não aparece no post",
+  "titulo_interno": "referência interna curta",
   "roteiro": {{
     "hook": "texto do gancho",
-    "desenvolvimento": ["ponto 1 com dado concreto", "ponto 2", "ponto 3"],
+    "desenvolvimento": ["ponto 1", "ponto 2", "ponto 3"],
     "cta": "texto do CTA direcionando para comentário ou direct",
-    "slides": null
+    "slides": [{{"ordem": 1, "texto": "texto"}}]
   }},
-  "hashtags": ["hashtag1", "hashtag2", "hashtag3", "hashtag4", "hashtag5", "hashtag6", "hashtag7", "hashtag8"],
+  "hashtags": ["hashtag1", "hashtag2"],
   "compliance_checou": true
-}}"""
+}}
+
+compliance_checou = true APENAS se verificou que nenhum guardrail foi violado e nenhum dado foi inventado.
+"""
 
 
-def run(data: str | None = None) -> ContentOutput:
-    hoje = data or datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    dia_semana = datetime.now(timezone.utc).weekday()
-    config_dia = CALENDARIO.get(dia_semana, CALENDARIO[0])
-    pilar = config_dia["pilar"]
-    formato = config_dia["formato"]
+# ── Gera roteiro para um tema específico ─────────────────────────────────────
+def _gerar_roteiro_para_tema(tema: TemaResearch, hoje: str) -> ContentOutput:
+    pilar = tema.pilar_sugerido
+    formato = FORMATO_POR_PILAR.get(pilar, FormatoConteudo.REEL)
 
-    print(f"📅 {hoje} | {pilar.value} | {formato.value.upper()}")
-
-    print("📂 Carregando pesquisa...")
-    research = _load_research(hoje)
-
-    if not research or not research.temas:
-        erro = f"Pesquisa do dia {hoje} não encontrada. Rode o research_agent primeiro."
-        log_execution("content_agent", "falha", erro=erro)
-        raise FileNotFoundError(erro)
-
-    tema = _selecionar_tema(research, pilar)
-
-    print(f"🎯 Tema: {tema.titulo}")
-    print(f"   Ângulo: {tema.angulo_sugerido}")
+    print(f"\n   Tema: {tema.titulo}")
+    print(f"     Pilar: {pilar.value} → Formato: {formato.value.upper()}")
 
     fontes_str = "\n".join([f"- {f.titulo}: {f.url}" for f in tema.fontes])
 
-    user_prompt = f"""Tema do dia vindo do Agente de Pesquisa:
+    user_prompt = f"""Tema do dia (Agente de Pesquisa):
 
 TÍTULO: {tema.titulo}
 RESUMO: {tema.resumo}
@@ -199,81 +163,107 @@ PILAR: {pilar.value}
 FONTES:
 {fontes_str or "Não especificadas"}
 
-Crie o roteiro completo no formato {formato.value.upper()} usando este tema.
-Adapte ao tom de voz e respeite os guardrails.
-O roteiro deve soar humano, direto e natural.
-Evite tom genérico, analogias vagas e CTA para site/link na bio.
-Se o tema envolver Selic, explique corretamente: Selic afeta financiamento, mas nao altera a taxa de administracao do consorcio."""
+Crie o roteiro completo no formato {formato.value.upper()} usando APENAS as informações acima.
+Não invente dados, percentuais ou estatísticas que não estejam nas fontes.
+O roteiro deve soar como Sandro falando para um amigo — direto, concreto, sem enrolação."""
 
-    print("🤖 Gerando roteiro...")
+    resposta_raw = get_completion(
+        system=_build_system_prompt(pilar, formato),
+        user=user_prompt,
+        max_tokens=2000,
+        json_mode=True,
+    )
 
-    try:
-        resposta_raw = get_completion(
-            system=_build_system_prompt(pilar, formato),
-            user=user_prompt,
-            max_tokens=2200,
-            json_mode=True,
-        )
-    except Exception as e:
-        erro = f"Erro no LLM: {e}"
+    dados = json.loads(resposta_raw)
+
+    slides = None
+    if dados.get("roteiro", {}).get("slides"):
+        slides = [SlideCarrossel(**s) for s in dados["roteiro"]["slides"]]
+
+    roteiro = RoteiroConteudo(
+        hook=dados["roteiro"]["hook"],
+        desenvolvimento=dados["roteiro"]["desenvolvimento"],
+        cta=dados["roteiro"]["cta"],
+        slides=slides,
+    )
+
+    return ContentOutput(
+        data=hoje,
+        gerado_em=datetime.now(timezone.utc),
+        pilar=pilar,
+        formato=formato,
+        titulo_interno=dados["titulo_interno"],
+        roteiro=roteiro,
+        hashtags=dados.get("hashtags", []),
+        compliance_checou=dados.get("compliance_checou", False),
+        revisao_humana=StatusRevisao.PENDENTE,
+    )
+
+
+# ── Função principal ──────────────────────────────────────────────────────────
+def run(data: str | None = None) -> ContentDiario:
+    """
+    Gera um roteiro por tema retornado pelo Research Agent.
+    Se research retornou 3 temas → gera 3 roteiros.
+    """
+    hoje = data or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+    print(f" {hoje} — gerando roteiros por tema")
+
+    # 1. Carregar pesquisa do dia
+    print(" Carregando pesquisa...")
+    research = _load_research(hoje)
+    if not research or not research.temas:
+        erro = f"Pesquisa do dia {hoje} não encontrada. Rode o research_agent primeiro."
         log_execution("content_agent", "falha", erro=erro)
-        raise
+        raise FileNotFoundError(erro)
 
-    print("✅ Validando schema...")
+    print(f"   {len(research.temas)} temas encontrados — gerando {len(research.temas)} roteiros")
 
-    try:
-        dados = json.loads(resposta_raw)
+    # 2. Gerar um roteiro por tema
+    roteiros = []
+    erros = []
 
-        slides = None
-        if dados.get("roteiro", {}).get("slides"):
-            slides = [SlideCarrossel(**s) for s in dados["roteiro"]["slides"]]
+    for i, tema in enumerate(research.temas, 1):
+        print(f"\nRoteiro {i}/{len(research.temas)}...")
+        try:
+            roteiro = _gerar_roteiro_para_tema(tema, hoje)
+            roteiros.append(roteiro)
+            print(f" Gerado: {roteiro.titulo_interno}")
+        except Exception as e:
+            erro = f"Erro no tema '{tema.titulo}': {e}"
+            erros.append(erro)
+            print(f"  {erro}")
 
-        roteiro = RoteiroConteudo(
-            hook=dados["roteiro"]["hook"],
-            desenvolvimento=dados["roteiro"]["desenvolvimento"],
-            cta=dados["roteiro"]["cta"],
-            slides=slides,
-        )
-
-        output = ContentOutput(
-            data=hoje,
-            gerado_em=datetime.now(timezone.utc),
-            pilar=pilar,
-            formato=formato,
-            titulo_interno=dados["titulo_interno"],
-            roteiro=roteiro,
-            hashtags=dados.get("hashtags", []),
-            compliance_checou=dados.get("compliance_checou", False),
-            revisao_humana=StatusRevisao.PENDENTE,
-        )
-
-    except Exception as e:
-        erro = f"Erro ao parsear resposta: {e}\nRaw: {resposta_raw[:300]}"
+    if not roteiros:
+        erro = f"Nenhum roteiro gerado. Erros: {'; '.join(erros)}"
         log_execution("content_agent", "falha", erro=erro)
         raise ValueError(erro)
 
+    # 3. Montar ContentDiario
+    output = ContentDiario(
+        data=hoje,
+        gerado_em=datetime.now(timezone.utc),
+        total_roteiros=len(roteiros),
+        roteiros=roteiros,
+    )
+
+    # 4. Salvar JSON
     output_path = os.path.join(
         os.path.dirname(__file__), "..", "..", "data", f"content_{hoje}.json"
     )
-
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
-
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(output.model_dump_json(indent=2))
+    print(f"\n {len(roteiros)} roteiros salvos em data/content_{hoje}.json")
 
-    print(f"💾 Salvo em data/content_{hoje}.json")
-
+    # 5. Logar
+    titulos = [r.titulo_interno for r in roteiros]
     log_execution(
         agent="content_agent",
         status="ok",
-        resultado=f"{formato.value.upper()} | {pilar.value} | '{output.titulo_interno}'",
-        metadata={
-            "data": hoje,
-            "pilar": pilar.value,
-            "formato": formato.value,
-            "compliance": output.compliance_checou,
-            "tema": tema.titulo,
-        },
+        resultado=f"{len(roteiros)} roteiros gerados: {', '.join(titulos)}",
+        metadata={"data": hoje, "total": len(roteiros), "erros": erros},
     )
 
     return output

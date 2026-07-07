@@ -15,43 +15,36 @@ def main():
     try:
         output = run()
     except FileNotFoundError as e:
-        print(f"\n❌ {e}")
-        send_alert("⚠️ Content Agent — pesquisa ausente", str(e))
+        print(f"\n{e}")
+        send_alert(" Content Agent — pesquisa ausente", str(e))
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Falhou: {e}")
-        send_alert("⚠️ Content Agent falhou", str(e))
+        print(f"\nFalhou: {e}")
+        send_alert(" Content Agent falhou", str(e))
         sys.exit(1)
 
     print(f"\n{'=' * 50}")
-    print(f"✅ ROTEIRO GERADO")
+    print(f" {output.total_roteiros} ROTEIROS GERADOS — {output.data}")
     print(f"{'=' * 50}")
-    print(f"Título:     {output.titulo_interno}")
-    print(f"Pilar:      {output.pilar.value}")
-    print(f"Formato:    {output.formato.value.upper()}")
-    print(f"Compliance: {'✓ OK' if output.compliance_checou else '⚠️  REVISAR'}")
-    print(f"Status:     {output.revisao_humana.value.upper()}")
 
-    print(f"\n── HOOK ──────────────────────────────────")
-    print(f"{output.roteiro.hook}")
+    for i, roteiro in enumerate(output.roteiros, 1):
+        print(f"\n── ROTEIRO {i}/{output.total_roteiros} ──────────────────────────")
+        print(f"Título:     {roteiro.titulo_interno}")
+        print(f"Pilar:      {roteiro.pilar.value}")
+        print(f"Formato:    {roteiro.formato.value.upper()}")
+        print(f"Compliance: {'✓ OK' if roteiro.compliance_checou else ' REVISAR'}")
+        print(f"\nHOOK: {roteiro.roteiro.hook}")
+        print(f"\nDESENVOLVIMENTO:")
+        for linha in roteiro.roteiro.desenvolvimento:
+            print(f"  • {linha}")
+        if roteiro.roteiro.slides:
+            print(f"\nSLIDES:")
+            for slide in roteiro.roteiro.slides:
+                print(f"  [{slide.ordem}] {slide.texto[:80]}")
+        print(f"\nCTA: {roteiro.roteiro.cta}")
+        print(f"\nHASHTAGS: {' '.join(f'#{h.lstrip(chr(35)).strip()}' for h in roteiro.hashtags)}")
 
-    print(f"\n── DESENVOLVIMENTO ───────────────────────")
-    for linha in output.roteiro.desenvolvimento:
-        print(f"  • {linha}")
-
-    if output.roteiro.slides:
-        print(f"\n── SLIDES ({len(output.roteiro.slides)}) ──────────────────────")
-        for slide in output.roteiro.slides:
-            print(f"  [{slide.ordem}] {slide.texto[:80]}")
-
-    print(f"\n── CTA ───────────────────────────────────")
-    print(f"{output.roteiro.cta}")
-
-    print(f"\n── HASHTAGS ──────────────────────────────")
-    print(" ".join(f"#{h.lstrip('#')}" for h in output.hashtags))
-
-    print(f"\n⚑  Aguarda revisão humana antes de publicar.")
-    print(f"   Arquivo: data/content_{output.data}.json")
+    print(f"\n Todos aguardam revisão humana antes de publicar.")
 
 
 if __name__ == "__main__":
