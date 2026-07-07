@@ -120,6 +120,28 @@ Formato: {formato.value.upper()}
 
 {instrucao_formato[formato]}
 
+scripts = _load_knowledge("content/scripts_reference.md")
+
+## EXEMPLO DE REEL BOM (use como referência de tom e estrutura):
+
+HOOK: "A Selic mexeu — e o que isso muda pra quem quer comprar imóvel?"
+DESENVOLVIMENTO:
+- "Quando a Selic sobe, o financiamento fica mais caro. Os juros do banco seguem a Selic."
+- "No consórcio, a Selic não muda nada. Você paga só a taxa de administração — fixa desde o contrato."
+- "Então paradoxalmente: quanto mais a Selic sobe, mais o consórcio se torna vantajoso em comparação."
+CTA: "Quer entender como isso impacta o seu caso? Comenta 'SELIC' aqui."
+
+EXEMPLO DE REEL RUIM (nunca fazer assim):
+HOOK: "Você sabia que o mercado está mudando em 2026?"
+DESENVOLVIMENTO:
+- "Estudos mostram que 70% dos consumidores..." ← NUNCA invente percentuais sem fonte real
+- "O mercado está se transformando..." ← vago demais, não entrega valor
+CTA: "Entre no nosso site para saber mais" ← NUNCA mencionar site
+
+REGRA CRÍTICA: Use APENAS dados que vieram das notícias fornecidas. 
+Se não há dado concreto disponível, use a lógica do consórcio (sem juros, taxa fixa, contemplação por lance) — nunca invente percentuais.
+
+
 ## REGRAS CRÍTICAS DE SAÍDA
 1. Responda APENAS com JSON válido. Sem markdown. Sem texto fora do JSON.
 2. O CTA NUNCA deve mencionar "site", "link na bio" ou "clique aqui". SEMPRE direcionar para comentário ou direct. Exemplos corretos: "Comenta SIMULAÇÃO aqui", "Me chama no direct", "Responde aqui: IMÓVEL ou CARRO".

@@ -20,12 +20,17 @@ def _load_knowledge(relative_path: str) -> str:
         return ""
 
 
-SEARCH_QUERIES = [
-    "consórcio imóveis Brasil notícias hoje",
-    "Selic mercado imobiliário impacto comprador Brasil",
-    "mercado automotivo Brasil preço carro consórcio",
-]
+def _build_search_queries() -> list[str]:
+    hoje = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+    ano_mes = datetime.now(timezone.utc).strftime("%Y-%m")
 
+    return [
+        f"consórcio imóvel novidade notícia {ano_mes}",
+        f"taxa Selic decisão Copom impacto {ano_mes}",
+        f"preço carro aumento queda mercado Brasil {ano_mes}",
+        f"consórcio contemplação lance record {ano_mes}",
+        f"financiamento imóvel juros banco Brasil {ano_mes}",
+    ]
 
 def _build_system_prompt() -> str:
     pilares = _load_knowledge("content/pillars_and_calendar.md")
@@ -84,7 +89,7 @@ def run() -> ResearchOutput:
 
     resultados_brutos = []
 
-    for query in SEARCH_QUERIES:
+    for query in _build_search_queries():
         try:
             resultados = search_web(query=query, max_results=3)
             resultados_brutos.extend(resultados)
