@@ -28,6 +28,39 @@ def _load_knowledge(filename: str) -> str:
         return f"[arquivo não encontrado: {filename}]"
 
 
+def _normalizar_enum(valor: object) -> str:
+    texto = str(valor or "").lower().strip()
+    substituicoes = {
+        "á": "a", "à": "a", "ã": "a", "â": "a",
+        "é": "e", "ê": "e",
+        "í": "i",
+        "ó": "o", "ô": "o", "õ": "o",
+        "ú": "u",
+        "ç": "c",
+        " ": "_",
+        "-": "_",
+    }
+    for antigo, novo in substituicoes.items():
+        texto = texto.replace(antigo, novo)
+    return texto
+
+
+def _parse_prioridade(valor: object) -> PrioridadeLead:
+    prioridade = _normalizar_enum(valor)
+    if prioridade in {item.value for item in PrioridadeLead}:
+        return PrioridadeLead(prioridade)
+    return PrioridadeLead.MEDIA
+
+
+def _parse_status_lead(valor: object) -> StatusLead | None:
+    status = _normalizar_enum(valor)
+    if not status or status in {"none", "null", "nenhum"}:
+        return None
+    if status in {item.value for item in StatusLead}:
+        return StatusLead(status)
+    return None
+
+
 def _formatar_lead_para_prompt(lead: dict, interacoes: list[dict]) -> str:
     tempo_sem_contato = "desconhecido"
 
@@ -189,7 +222,10 @@ REGRAS CRÍTICAS:
 """
 
 
-def _analisar_leads_com_llm(leads_formatados: str, total_leads: int) -> tuple[list[dict], str]:
+def _analisar_leads_com_llm(
+    leads_formatados: str,
+    total_leads: int,
+) -> tuple[list[dict], str]:
     user_prompt = f"""Analise estes {total_leads} leads do CRM e gere uma ação específica para cada um:
 
 {leads_formatados}
@@ -270,14 +306,12 @@ def run() -> QualificationOutput:
             acao = QualificationAction(
                 lead_id=acao_raw["lead_id"],
                 lead_nome=acao_raw["lead_nome"],
-                prioridade=PrioridadeLead(acao_raw["prioridade"]),
+                prioridade=_parse_prioridade(acao_raw.get("prioridade")),
                 acao_sugerida=acao_raw["acao_sugerida"],
                 proximo_passo=acao_raw["proximo_passo"],
                 mensagem_reengajamento=acao_raw.get("mensagem_reengajamento"),
-                novo_status_sugerido=(
-                    StatusLead(acao_raw["novo_status_sugerido"])
-                    if acao_raw.get("novo_status_sugerido")
-                    else None
+                novo_status_sugerido=_parse_status_lead(
+                    acao_raw.get("novo_status_sugerido")
                 ),
                 registrar_no_historico=acao_raw["registrar_no_historico"],
                 executar=False,
@@ -305,7 +339,10 @@ def run() -> QualificationOutput:
             if lead_data and lead_data.get("lead_frio"):
                 leads_frios += 1
 
-            print(f"✓ {acao.lead_nome} [{acao.prioridade.value}] — {acao.acao_sugerida[:70]}...")
+            print(
+                f"✓ {acao.lead_nome} [{acao.prioridade.value}] — "
+                f"{acao.acao_sugerida[:70]}..."
+            )
 
         except Exception as e:
             print(f"Erro ao processar ação: {e}")
@@ -322,7 +359,10 @@ def run() -> QualificationOutput:
     log_execution(
         agent="qualification_agent",
         status="ok",
-        resultado=f"{len(acoes_validadas)} ações geradas | {leads_prioritarios} prioritários | {leads_frios} frios",
+        resultado=(
+            f"{len(acoes_validadas)} ações geradas | "
+            f"{leads_prioritarios} prioritários | {leads_frios} frios"
+        ),
         metadata={"data": hoje, "total_leads": len(leads)},
     )
 
