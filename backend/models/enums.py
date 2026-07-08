@@ -28,3 +28,16 @@ class StatusRevisao(str, Enum):
     PENDENTE = "pendente"
     APROVADO = "aprovado"
     REPROVADO = "reprovado"
+
+class PrioridadeLead(str, Enum):
+    ALTA = "alta"
+    MEDIA = "media"
+    BAIXA = "baixa"
+
+
+class StatusLead(str, Enum):
+    NOVO = "novo"
+    QUALIFICADO = "qualificado"
+    EM_NEGOCIACAO = "em_negociacao"
+    FECHADO = "fechado"
+    PERDIDO = "perdido"

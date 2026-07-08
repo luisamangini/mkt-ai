@@ -163,3 +163,101 @@ Arquivo salvo: data/content_{output.data}.json
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/run/qualification")
+def run_qualification(authorization: str | None = Header(default=None)):
+    """
+    Dispara o Agente de Qualificação.
+    Lê leads ativos, analisa e registra sugestões no CRM.
+    """
+    _verificar_token(authorization)
+
+    try:
+        from backend.agents.qualification_agent import run
+
+        output = run()
+
+        return {
+            "status": "ok",
+            "data": output.data,
+            "total_leads_analisados": output.total_leads_analisados,
+            "leads_prioritarios": output.leads_prioritarios,
+            "leads_frios": output.leads_frios,
+            "resumo": output.resumo,
+            "acoes": [
+                {
+                    "lead_nome": acao.lead_nome,
+                    "prioridade": acao.prioridade.value,
+                    "acao_sugerida": acao.acao_sugerida,
+                    "proximo_passo": acao.proximo_passo,
+                    "mensagem_reengajamento": acao.mensagem_reengajamento,
+                    "novo_status_sugerido": (
+                        acao.novo_status_sugerido.value
+                        if acao.novo_status_sugerido
+                        else None
+                    ),
+                }
+                for acao in output.acoes
+            ],
+            "email_body": _formatar_qualificacao_email(output),
+            "assunto_email": f"Qualificação de Leads — {output.data}",
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def _formatar_qualificacao_email(output) -> str:
+    """Formata o output da qualificação para envio por e-mail."""
+
+    ordem_prioridade = {
+        "alta": 0,
+        "media": 1,
+        "baixa": 2,
+    }
+
+    acoes_ordenadas = sorted(
+        output.acoes,
+        key=lambda acao: ordem_prioridade.get(acao.prioridade.value, 99),
+    )
+
+    linhas = [
+        f"QUALIFICAÇÃO DE LEADS — {output.data}",
+        "=" * 50,
+        f"Leads analisados:   {output.total_leads_analisados}",
+        f"Leads prioritários: {output.leads_prioritarios}",
+        f"Leads frios:        {output.leads_frios}",
+        "",
+        "RESUMO",
+        output.resumo,
+        "",
+        "AÇÕES DO DIA",
+    ]
+
+    for acao in acoes_ordenadas:
+        linhas += [
+            "",
+            f"{acao.lead_nome} [{acao.prioridade.value.upper()}]",
+            f"Ação: {acao.acao_sugerida}",
+            f"Próximo passo: {acao.proximo_passo}",
+        ]
+
+        if acao.mensagem_reengajamento:
+            linhas += [
+                "Mensagem pronta:",
+                f'"{acao.mensagem_reengajamento}"',
+            ]
+
+        if acao.novo_status_sugerido:
+            linhas.append(
+                f"Status sugerido: {acao.novo_status_sugerido.value}"
+            )
+
+    linhas += [
+        "",
+        "=" * 50,
+        "Nenhuma ação foi executada automaticamente.",
+        "O operador revisa e age manualmente pelo CRM.",
+    ]
+
+    return "\n".join(linhas)
