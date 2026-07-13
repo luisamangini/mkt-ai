@@ -3,14 +3,19 @@ import os
 from datetime import datetime, timezone
 
 from backend.core.llm import get_completion
-from backend.core.search import search_web
 from backend.core.logger import log_execution
-from schemas.research import ResearchOutput
+from backend.core.search import search_web
 from backend.models.enums import StatusAgente
+from schemas.research import ResearchOutput
 
 
 def _load_knowledge(relative_path: str) -> str:
-    base = os.path.join(os.path.dirname(__file__), "..", "..", "knowledge")
+    base = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "knowledge",
+    )
     path = os.path.join(base, relative_path)
 
     try:
@@ -21,7 +26,6 @@ def _load_knowledge(relative_path: str) -> str:
 
 
 def _build_search_queries() -> list[str]:
-    hoje = datetime.now(timezone.utc).strftime("%d/%m/%Y")
     ano_mes = datetime.now(timezone.utc).strftime("%Y-%m")
 
     return [
@@ -32,10 +36,17 @@ def _build_search_queries() -> list[str]:
         f"financiamento imóvel juros banco Brasil {ano_mes}",
     ]
 
+
 def _build_system_prompt() -> str:
-    pilares = _load_knowledge("content/pillars_and_calendar.md")
-    personas = _load_knowledge("brand/personas.md")
-    guardrails = _load_knowledge("brand/compliance_guardrails.md")
+    pilares = _load_knowledge(
+        "content/pillars_and_calendar.md"
+    )
+    personas = _load_knowledge(
+        "brand/personas.md"
+    )
+    guardrails = _load_knowledge(
+        "brand/compliance_guardrails.md"
+    )
 
     return f"""
 Você é um agente especializado em pesquisa de mercado para conteúdo sobre consórcios no Brasil.
@@ -68,7 +79,10 @@ Formato obrigatório:
       "pilar_sugerido": "Atualidades e Mercado",
       "relevancia": "alta",
       "fontes": [
-        {{"titulo": "string", "url": "string"}}
+        {{
+          "titulo": "string",
+          "url": "string"
+        }}
       ]
     }}
   ]
@@ -79,7 +93,7 @@ Valores aceitos para pilar_sugerido:
 
 Valores aceitos para relevancia:
 "alta", "media", "baixa"
-"""
+""".strip()
 
 
 def run() -> ResearchOutput:
@@ -87,31 +101,72 @@ def run() -> ResearchOutput:
 
     print("Buscando notícias...")
 
-    resultados_brutos = []
+    resultados_brutos: list[dict] = []
+    erros_busca: list[str] = []
+    total_buscas = 0
+    buscas_com_sucesso = 0
 
     for query in _build_search_queries():
+        total_buscas += 1
+
         try:
-            resultados = search_web(query=query, max_results=3)
-            resultados_brutos.extend(resultados)
-            print(f"OK busca: {query} ({len(resultados)} resultados)")
+            resultados = search_web(
+                query=query,
+                max_results=3,
+            )
+
+            if resultados:
+                resultados_brutos.extend(resultados)
+                buscas_com_sucesso += 1
+
+            print(
+                f"OK busca: {query} "
+                f"({len(resultados)} resultados)"
+            )
+
         except Exception as error:
-            print(f"Erro na busca '{query}': {error}")
+            mensagem_erro = (
+                f"Erro na busca '{query}': {error}"
+            )
+            erros_busca.append(mensagem_erro)
+            print(mensagem_erro)
 
+    # Falha fatal: nenhuma das buscas conseguiu produzir resultados.
+    # O agente registra a falha e lança uma exceção para que API,
+    # orquestrador e n8n interrompam corretamente o fluxo.
     if not resultados_brutos:
-        erro = "Nenhum resultado retornado pela busca web."
-        log_execution("research_agent", "falha", erro=erro)
+        detalhes = " | ".join(erros_busca)
 
-        return ResearchOutput(
-            data=hoje,
-            gerado_em=datetime.now(timezone.utc),
-            temas=[],
-            status=StatusAgente.FALHA,
-            erro=erro,
+        erro = (
+            "Nenhum resultado foi obtido pela busca web. "
+            f"Buscas executadas: {total_buscas}. "
+            f"Buscas com resultados: {buscas_com_sucesso}."
         )
+
+        if detalhes:
+            erro = f"{erro} Erros: {detalhes}"
+
+        log_execution(
+            agent="research_agent",
+            status="falha",
+            erro=erro,
+            metadata={
+                "data": hoje,
+                "total_buscas": total_buscas,
+                "buscas_com_sucesso": buscas_com_sucesso,
+                "erros_busca": erros_busca,
+            },
+        )
+
+        raise RuntimeError(erro)
 
     noticias_formatadas = "\n\n".join(
         [
-            f"TITULO: {item['title']}\nURL: {item['url']}\nCONTEUDO: {item['content'][:500]}"
+            (
+                f"TITULO: {item.get('title', '')}\n"
+                f"URL: {item.get('url', '')}\n"
+                f"CONTEUDO: {item.get('content', '')[:500]}"
+            )
             for item in resultados_brutos[:9]
         ]
     )
@@ -123,7 +178,7 @@ Notícias encontradas:
 {noticias_formatadas}
 
 Com base nessas notícias, gere os 2 a 3 melhores temas de conteúdo para o público de consórcios.
-"""
+""".strip()
 
     print("Analisando com LLM...")
 
@@ -145,16 +200,23 @@ Com base nessas notícias, gere os 2 a 3 melhores temas de conteúdo para o púb
         )
 
     except Exception as error:
-        erro = f"Erro ao gerar ou validar resposta: {error}"
-        log_execution("research_agent", "falha", erro=erro)
-
-        return ResearchOutput(
-            data=hoje,
-            gerado_em=datetime.now(timezone.utc),
-            temas=[],
-            status=StatusAgente.FALHA,
-            erro=erro,
+        erro = (
+            "Erro ao gerar ou validar a resposta do "
+            f"Research Agent: {error}"
         )
+
+        log_execution(
+            agent="research_agent",
+            status="falha",
+            erro=erro,
+            metadata={
+                "data": hoje,
+                "resultados_busca": len(resultados_brutos),
+                "buscas_com_sucesso": buscas_com_sucesso,
+            },
+        )
+
+        raise RuntimeError(erro) from error
 
     output_path = os.path.join(
         os.path.dirname(__file__),
@@ -164,18 +226,34 @@ Com base nessas notícias, gere os 2 a 3 melhores temas de conteúdo para o púb
         f"research_{hoje}.json",
     )
 
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    os.makedirs(
+        os.path.dirname(output_path),
+        exist_ok=True,
+    )
 
-    with open(output_path, "w", encoding="utf-8") as file:
-        file.write(output.model_dump_json(indent=2))
+    with open(
+        output_path,
+        "w",
+        encoding="utf-8",
+    ) as file:
+        file.write(
+            output.model_dump_json(indent=2)
+        )
 
     log_execution(
         agent="research_agent",
         status="ok",
         resultado=f"{len(output.temas)} temas encontrados",
-        metadata={"data": hoje},
+        metadata={
+            "data": hoje,
+            "total_buscas": total_buscas,
+            "buscas_com_sucesso": buscas_com_sucesso,
+            "resultados_encontrados": len(resultados_brutos),
+        },
     )
 
-    print(f"JSON salvo em data/research_{hoje}.json")
+    print(
+        f"JSON salvo em data/research_{hoje}.json"
+    )
 
     return output
