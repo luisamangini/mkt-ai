@@ -290,3 +290,51 @@ def _formatar_qualificacao_email(output) -> str:
     ]
 
     return "\n".join(linhas)
+
+def _formatar_analise_email(output) -> str:
+    """Formata o output da análise semanal para envio por e-mail."""
+
+    linhas = [
+        f"ANÁLISE SEMANAL MKT-AI — {output.semana}",
+        "=" * 50,
+        "",
+        "SITUAÇÃO GERAL",
+        output.situacao_geral,
+        "",
+        "DESTAQUE POSITIVO",
+        output.destaque_positivo,
+    ]
+
+    if output.alerta:
+        linhas += [
+            "",
+            "ALERTA",
+            output.alerta,
+        ]
+
+    linhas += [
+        "",
+        "CAMPANHAS",
+        f"Melhor campanha: {output.melhor_campanha}",
+        f"Pior campanha: {output.pior_campanha}",
+        "",
+        "RECOMENDAÇÕES",
+    ]
+
+    for indice, recomendacao in enumerate(
+        output.recomendacoes,
+        start=1,
+    ):
+        linhas.append(
+            f"{indice}. {recomendacao}"
+        )
+
+    linhas += [
+        "",
+        "=" * 50,
+        "Nenhuma alteração foi executada automaticamente.",
+        "As recomendações devem ser revisadas pelo operador.",
+    ]
+
+    return "\n".join(linhas)
+
