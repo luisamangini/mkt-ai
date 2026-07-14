@@ -206,6 +206,35 @@ def run_qualification(authorization: str | None = Header(default=None)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/run/analysis")
+def run_analysis(authorization: str | None = Header(default=None)):
+    """
+    Dispara o Agente de Análise.
+    Cruza dados da Meta Ads com o CRM e gera o diagnóstico semanal.
+    """
+    _verificar_token(authorization)
+
+    try:
+        from backend.agents.analysis_agent import run
+
+        output = run()
+
+        return {
+            "status": "ok",
+            "semana": output.semana,
+            "situacao_geral": output.situacao_geral,
+            "destaque_positivo": output.destaque_positivo,
+            "alerta": output.alerta,
+            "melhor_campanha": output.melhor_campanha,
+            "pior_campanha": output.pior_campanha,
+            "recomendacoes": output.recomendacoes,
+            "email_body": _formatar_analise_email(output),
+            "assunto_email": f"Análise semanal MKT-AI — {output.semana}",
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 def _formatar_qualificacao_email(output) -> str:
     """Formata o output da qualificação para envio por e-mail."""
