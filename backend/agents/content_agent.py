@@ -543,7 +543,7 @@ O conteúdo deve:
         json_mode=True,
     )
 
-    dados = json.loads(resposta_raw)
+    dados = _carregar_json_resposta(resposta_raw)
 
     roteiro_raw = dados.get("roteiro")
 
@@ -629,6 +629,54 @@ O conteúdo deve:
         ),
         revisao_humana=StatusRevisao.PENDENTE,
     )
+
+
+def _carregar_json_resposta(
+    resposta_raw: str,
+) -> dict:
+    """
+    Extrai e valida um objeto JSON retornado pelo LLM.
+    Aceita JSON puro, blocos Markdown e texto antes do JSON.
+    """
+    texto = resposta_raw.strip()
+
+    if texto.startswith("```"):
+        linhas = texto.splitlines()
+
+        if linhas and linhas[0].strip().startswith("```"):
+            linhas = linhas[1:]
+
+        if linhas and linhas[-1].strip() == "```":
+            linhas = linhas[:-1]
+
+        texto = "\n".join(linhas).strip()
+
+    inicio = texto.find("{")
+    fim = texto.rfind("}")
+
+    if inicio == -1 or fim == -1 or fim < inicio:
+        raise ValueError(
+            "O Content Agent não retornou um JSON identificável. "
+            f"Resposta recebida: {texto[:500]!r}"
+        )
+
+    json_texto = texto[inicio: fim + 1]
+
+    try:
+        dados = json.loads(json_texto)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "O Content Agent retornou JSON inválido. "
+            f"Erro: {exc}. "
+            f"Resposta: {json_texto[:800]!r}"
+        ) from exc
+
+    if not isinstance(dados, dict):
+        raise ValueError(
+            "A resposta do Content Agent deve ser um objeto JSON."
+        )
+
+    return dados 
 
 
 def run(
