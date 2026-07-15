@@ -50,7 +50,7 @@ def main() -> None:
             f"Leads: {snapshot.anuncios.leads_meta}"
         )
         print(
-            f"CPL bruto: R$ "
+            "CPL bruto: R$ "
             f"{snapshot.anuncios.cpl_bruto:.2f}"
         )
         print(
@@ -66,7 +66,7 @@ def main() -> None:
             f"Hook rate: {snapshot.anuncios.hook_rate:.1f}%"
         )
         print(
-            f"Campanhas: "
+            "Campanhas: "
             f"{len(snapshot.anuncios.campanhas)}"
         )
 
@@ -115,6 +115,32 @@ def main() -> None:
             "Custo por lead fechado: "
             f"R$ {snapshot.crm.custo_lead_fechado:.2f}"
         )
+
+        print("\nINSTAGRAM")
+
+        if snapshot.instagram:
+            print(
+                f"Username: @{snapshot.instagram.username}"
+            )
+            print(
+                f"Seguidores: {snapshot.instagram.seguidores:,}"
+            )
+            print(
+                f"Posts: {snapshot.instagram.total_posts}"
+            )
+            print(
+                f"Alcance: {snapshot.instagram.alcance}"
+            )
+            print(
+                "Visualizações: "
+                f"{snapshot.instagram.visualizacoes}"
+            )
+            print(
+                "Visitas ao perfil: "
+                f"{snapshot.instagram.visitas_perfil}"
+            )
+        else:
+            print("Sem dados do Instagram.")
 
     except Exception as exc:
         print(f"Falhou: {exc}")

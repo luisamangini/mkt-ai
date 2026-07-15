@@ -133,6 +133,12 @@ def salvar_snapshot(snapshot) -> dict:
         # Metadados
         "aviso": snapshot.aviso,
         "snapshot_completo": snapshot.model_dump(),
+        "instagram_username": snapshot.instagram.username if snapshot.instagram else None,
+        "instagram_seguidores": snapshot.instagram.seguidores if snapshot.instagram else 0,
+        "instagram_posts": snapshot.instagram.total_posts if snapshot.instagram else 0,
+        "instagram_alcance": snapshot.instagram.alcance if snapshot.instagram else 0,
+        "instagram_visualizacoes": snapshot.instagram.visualizacoes if snapshot.instagram else 0,
+        "instagram_visitas_perfil": snapshot.instagram.visitas_perfil if snapshot.instagram else 0, 
     }
 
     resp = (

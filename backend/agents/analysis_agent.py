@@ -231,6 +231,20 @@ def _formatar_snapshot_para_prompt(
         anteriores,
     )
 
+    instagram_str = ""
+
+    if snapshot.instagram:
+        instagram_str = f"""
+MÉTRICAS ORGÂNICAS — INSTAGRAM
+
+Username: @{snapshot.instagram.username}
+Seguidores: {snapshot.instagram.seguidores}
+Posts publicados: {snapshot.instagram.total_posts}
+Alcance orgânico: {snapshot.instagram.alcance}
+Visualizações: {snapshot.instagram.visualizacoes}
+Visitas ao perfil: {snapshot.instagram.visitas_perfil}
+""".strip()
+
     return f"""
 SEMANA: {snapshot.semana}
 GERADO EM: {snapshot.gerado_em}
@@ -268,9 +282,10 @@ Taxa de fechamento: {snapshot.crm.taxa_fechamento:.2%}
 Custo por lead qualificado: R$ {snapshot.crm.custo_lead_qualificado:.2f}
 Custo por lead fechado: R$ {snapshot.crm.custo_lead_fechado:.2f}
 
+{instagram_str}
+
 {historico_str}
 """.strip()
-
 
 def _build_system_prompt() -> str:
     benchmarks = _load_knowledge(

@@ -59,9 +59,18 @@ class MetricasCRM(BaseModel):
     custo_lead_fechado: float = Field(default=0.0)
 
 
+class MetricasInstagram(BaseModel):
+    username: str = ""
+    seguidores: int = Field(default=0)
+    total_posts: int = Field(default=0)
+    alcance: int = Field(default=0)
+    visualizacoes: int = Field(default=0)
+    visitas_perfil: int = Field(default=0)
+
 class DashboardSnapshot(BaseModel):
     semana: str
     gerado_em: str
     anuncios: MetricasAnuncios
     crm: MetricasCRM
+    instagram: Optional[MetricasInstagram] = None
     aviso: Optional[str] = None
