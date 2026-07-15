@@ -1,7 +1,10 @@
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Header
+from pydantic import BaseModel
+
 
 app = FastAPI(title="MKT-AI API", version="1.0.0")
 
@@ -230,6 +233,10 @@ def run_analysis(authorization: str | None = Header(default=None)):
             "recomendacoes": output.recomendacoes,
             "email_body": _formatar_analise_email(output),
             "assunto_email": f"Análise semanal MKT-AI — {output.semana}",
+            "cpl_atual": output.cpl_atual,
+            "cpl_limite": output.cpl_limite,
+            "cpl_alerta_disparado": output.cpl_alerta_disparado,
+            "mensagem_alerta_cpl": output.mensagem_alerta_cpl,
         }
 
     except Exception as e:
@@ -261,6 +268,7 @@ def _formatar_qualificacao_email(output) -> str:
         output.resumo,
         "",
         "AÇÕES DO DIA",
+        
     ]
 
     for acao in acoes_ordenadas:
@@ -338,3 +346,95 @@ def _formatar_analise_email(output) -> str:
 
     return "\n".join(linhas)
 
+
+class LeadInput(BaseModel):
+    """Schema de entrada para captura de lead."""
+    nome: str
+    whatsapp: str
+    origem: str = "outro"
+    objetivo: Optional[str] = None
+    valor_carta: Optional[float] = None
+    prazo_uso: Optional[str] = None
+    conhece_consorcio: Optional[str] = None
+    observacoes: Optional[str] = None
+
+
+@app.post("/leads/capture")
+def capture_lead(lead: LeadInput, authorization: str | None = Header(default=None)):
+    """
+    Captura um lead e insere no CRM (Supabase).
+    Deduplica por WhatsApp — mesmo número não gera dois registros.
+    Pode ser chamado por formulários, Typeform, n8n ou qualquer fonte externa.
+    """
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_lead_por_whatsapp, criar_lead, inserir_interacao
+
+        # Normalizar WhatsApp — remover espaços, traços e parênteses
+        whatsapp_normalizado = (
+            lead.whatsapp
+            .replace(" ", "")
+            .replace("-", "")
+            .replace("(", "")
+            .replace(")", "")
+            .replace("+", "")
+        )
+
+        # Verificar deduplicação
+        existente = get_lead_por_whatsapp(whatsapp_normalizado)
+        if existente:
+            # Lead já existe — registra nova interação e retorna
+            inserir_interacao(
+                lead_id=existente["id"],
+                tipo="contato_repetido",
+                nota=f"Lead entrou em contato novamente via {lead.origem}. Observações: {lead.observacoes or 'nenhuma'}",
+                proximo_passo="Verificar histórico e retomar contato",
+            )
+            return {
+                "status": "duplicado",
+                "mensagem": f"Lead {lead.nome} já existe no CRM (WhatsApp: {whatsapp_normalizado})",
+                "lead_id": existente["id"],
+                "acao": "nova interação registrada no histórico",
+            }
+
+        # Montar dados do lead
+        dados = {
+            "nome": lead.nome.strip(),
+            "whatsapp": whatsapp_normalizado,
+            "origem": lead.origem,
+            "status": "novo",
+        }
+
+        # Campos opcionais — só incluir se preenchidos
+        if lead.objetivo:
+            dados["objetivo"] = lead.objetivo
+        if lead.valor_carta is not None:
+            dados["valor_carta"] = lead.valor_carta
+        if lead.prazo_uso:
+            dados["prazo_uso"] = lead.prazo_uso
+        if lead.conhece_consorcio:
+            dados["conhece_consorcio"] = lead.conhece_consorcio
+        if lead.observacoes:
+            dados["observacoes"] = lead.observacoes
+
+        # Criar lead
+        novo_lead = criar_lead(dados)
+
+        # Registrar interação inicial
+        inserir_interacao(
+            lead_id=novo_lead["id"],
+            tipo="contato_inicial",
+            nota=f"Lead capturado via {lead.origem}. Observações: {lead.observacoes or 'nenhuma'}",
+            proximo_passo="Aplicar roteiro de qualificação (4 perguntas)",
+        )
+
+        return {
+            "status": "criado",
+            "mensagem": f"Lead {lead.nome} cadastrado com sucesso",
+            "lead_id": novo_lead["id"],
+            "whatsapp": whatsapp_normalizado,
+            "proximo_passo": "Agente de Qualificação vai analisar este lead no próximo ciclo (13h)",
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
