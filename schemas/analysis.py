@@ -45,3 +45,8 @@ class AnalysisOutput(BaseModel):
             "Corpo do e-mail. Será preenchido posteriormente pela API."
         ),
     )
+
+    cpl_atual: float = 0.0
+    cpl_limite: float = 0.0
+    cpl_alerta_disparado: bool = False
+    mensagem_alerta_cpl: str | None = None

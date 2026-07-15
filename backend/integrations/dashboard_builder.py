@@ -189,3 +189,55 @@ def build_snapshot(
         ),
         aviso=aviso,
     )
+
+def build_snapshot(date_preset: str = "last_7d") -> DashboardSnapshot:
+    agora = datetime.now(timezone.utc)
+
+    ano_iso, semana_iso, _ = agora.isocalendar()
+    semana = f"{ano_iso}-W{semana_iso:02d}"
+
+    gerado_em = agora.isoformat()
+
+    print("  Buscando insights Meta Ads...")
+    insights_raw, periodo_utilizado, aviso = get_account_insights(date_preset)
+    campanhas_raw = get_campaigns_insights(periodo_utilizado)
+    
+    metricas_meta = extrair_metricas(
+        insights=insights_raw,
+        campanhas=campanhas_raw,
+        periodo_solicitado=date_preset,
+        periodo_utilizado=periodo_utilizado,
+    )
+
+    print("   Buscando métricas do CRM...")
+    crm_raw = _get_crm_metricas(periodo_utilizado)
+
+    gasto      = metricas_meta["gasto"]
+    leads_qual = crm_raw["leads_qualificados"]
+    leads_fech = crm_raw["leads_fechados"]
+
+    custo_lead_qual = round(gasto / leads_qual, 2) if leads_qual > 0 else 0.0
+    custo_lead_fech = round(gasto / leads_fech, 2) if leads_fech > 0 else 0.0
+
+    snapshot = DashboardSnapshot(
+        semana=semana,
+        gerado_em=gerado_em,
+        anuncios=MetricasAnuncios(**metricas_meta),
+        crm=MetricasCRM(
+            custo_lead_qualificado=custo_lead_qual,
+            custo_lead_fechado=custo_lead_fech,
+            **crm_raw,
+        ),
+        aviso=aviso,
+    )
+
+    # Persistir no Supabase automaticamente
+    print("   Salvando snapshot no Supabase...")
+    try:
+        from backend.integrations.supabase import salvar_snapshot
+        salvar_snapshot(snapshot)
+        print(f"  Snapshot {semana} salvo")
+    except Exception as e:
+        print(f"  Falha ao salvar snapshot: {e} — continuando sem persistir")
+
+    return snapshot

@@ -93,3 +93,68 @@ def get_interacoes_lead(lead_id: str) -> list[dict]:
         .execute()
     )
     return resp.data or []
+
+# ── Dashboard Snapshots ───────────────────────────────────────────────────────
+
+def salvar_snapshot(snapshot) -> dict:
+    """
+    Salva o DashboardSnapshot no Supabase.
+    Se já existe snapshot para a semana, atualiza (upsert).
+    """
+    client = get_client()
+
+    dados = {
+        "semana": snapshot.semana,
+        "gerado_em": snapshot.gerado_em,
+        "periodo_solicitado": snapshot.anuncios.periodo_solicitado,
+        "periodo_utilizado": snapshot.anuncios.periodo_utilizado,
+        # Meta Ads
+        "gasto": snapshot.anuncios.gasto,
+        "impressoes": snapshot.anuncios.impressoes,
+        "alcance": snapshot.anuncios.alcance,
+        "cliques": snapshot.anuncios.cliques,
+        "ctr": snapshot.anuncios.ctr,
+        "cpm": snapshot.anuncios.cpm,
+        "cpl_bruto": snapshot.anuncios.cpl_bruto,
+        "leads_meta": snapshot.anuncios.leads_meta,
+        "frequencia": snapshot.anuncios.frequencia,
+        "hook_rate": snapshot.anuncios.hook_rate,
+        "campanhas": snapshot.anuncios.campanhas,
+        # CRM
+        "leads_novos": snapshot.crm.leads_novos,
+        "leads_qualificados": snapshot.crm.leads_qualificados,
+        "leads_em_negociacao": snapshot.crm.leads_em_negociacao,
+        "leads_fechados": snapshot.crm.leads_fechados,
+        "leads_perdidos": snapshot.crm.leads_perdidos,
+        "taxa_qualificacao": snapshot.crm.taxa_qualificacao,
+        "taxa_fechamento": snapshot.crm.taxa_fechamento,
+        "custo_lead_qualificado": snapshot.crm.custo_lead_qualificado,
+        "custo_lead_fechado": snapshot.crm.custo_lead_fechado,
+        # Metadados
+        "aviso": snapshot.aviso,
+        "snapshot_completo": snapshot.model_dump(),
+    }
+
+    resp = (
+        client.table("dashboard_snapshots")
+        .upsert(dados, on_conflict="semana")
+        .execute()
+    )
+    return resp.data[0] if resp.data else {}
+
+
+def get_snapshots_anteriores(semana_atual: str, limite: int = 4) -> list[dict]:
+    """
+    Busca os últimos N snapshots anteriores à semana atual.
+    Usado pelo Agente de Análise para comparação histórica.
+    """
+    client = get_client()
+    resp = (
+        client.table("dashboard_snapshots")
+        .select("*")
+        .lt("semana", semana_atual)  # anteriores à semana atual
+        .order("semana", desc=True)
+        .limit(limite)
+        .execute()
+    )
+    return resp.data or []

@@ -31,6 +31,7 @@ META_APP_ID = os.getenv("META_APP_ID", "")
 META_APP_SECRET = os.getenv("META_APP_SECRET", "")
 META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN", "")
 META_AD_ACCOUNT_ID = os.getenv("META_AD_ACCOUNT_ID", "")
-
+# Alertas de performance
+CPL_LIMITE_ALERTA = float(os.getenv("CPL_LIMITE_ALERTA", "50"))  # R$50 como padrão inicial
 
 
