@@ -1,8 +1,7 @@
 # CRM e Funil de Vendas
 
 ## Ferramenta
-Airtable (MVP). Campos mapeados abaixo constroem a base do sistema.
-
+Supabase (MVP). Campos mapeados abaixo constroem a base do sistema.
 ---
 
 ## Funil de status

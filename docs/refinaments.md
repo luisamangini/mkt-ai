@@ -23,3 +23,34 @@
 
 - Adicionar insights
 - Explicar métricas
+
+
+
+
+
+# Refinamentos dos agentes
+
+## Research Agent
+- Melhorar seleção de temas
+- Reduzir repetição
+- Melhorar priorização por potencial de viralização
+- Tornar quantidade de buscas configurável
+
+## Content Agent
+- Melhorar tom de voz (mais Sandro)
+- Hooks mais fortes
+- CTA mais natural
+- Melhor compliance
+- Evitar roteiros repetitivos
+
+## Qualification Agent
+- Mensagens menos formais
+- Melhor priorização
+- Melhor lógica de follow-up
+- Considerar tempo desde última interação
+- Considerar valor do crédito e intenção
+
+## Infraestrutura
+- DEV_MODE para evitar gastar tokens
+- Retry automático quando Groq responder 429
+- Logs melhores

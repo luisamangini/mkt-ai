@@ -17,4 +17,4 @@ for i, item in enumerate(results, start=1):
     print(f"{i}. {item['title']}")
     print(f"   URL: {item['url']}")
     print(f"   Score: {item['score']}")
-    print(f"   Resumo: {item['content'][:250]}...\n")
+    print(f"   Resumo: {item['content'][:250]}...\n")    
