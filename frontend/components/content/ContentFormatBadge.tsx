@@ -11,17 +11,17 @@ const formatConfig = {
   reel: {
     label: "Reel",
     icon: Video,
-    className: "border-[#51A2FF]/20 bg-[#51A2FF]/10 text-[#2B7FFF]",
+    className: "border-violet-200 bg-violet-50 text-violet-600",
   },
   carrossel: {
     label: "Carrossel",
     icon: Layers3,
-    className: "border-[#05DF72]/20 bg-[#05DF72]/10 text-green-600",
+    className: "border-cyan-200 bg-cyan-50 text-cyan-600",
   },
   stories: {
     label: "Stories",
     icon: CirclePlay,
-    className: "border-amber-200 bg-amber-50 text-amber-700",
+    className: "border-pink-200 bg-pink-50 text-pink-600",
   },
 } satisfies Record<
   ContentFormat,

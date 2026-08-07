@@ -7,14 +7,14 @@ export type ContentPillar =
   | "atualidades"
   | "conversao";
 
-export type ContentStatus = "rascunho" | "aprovacao" | "publicado";
-
-export type ContentApprovalStatus =
-  | "pendente"
+export type ContentStatus =
+  | "sem_status"
   | "aprovado"
-  | "nao_aplicavel";
+  | "publicado"
+  | "descartado";
 
-export type ContentFilter = "todos" | "rascunho" | "aprovacao" | "publicado";
+export type ContentFilter = "todos" | Exclude<ContentStatus, "sem_status">;
+export type ContentOrigin = "ai" | "manual";
 
 export interface ContentScript {
   hook: string;
@@ -26,14 +26,16 @@ export interface ContentScript {
 
 export interface ContentItem {
   id: string;
+  executionId: string;
+  contentIndex: number;
   title: string;
   format: ContentFormat;
   pillar: ContentPillar;
   status: ContentStatus;
-  aiScore: number;
   createdAt: string;
-  approvalStatus: ContentApprovalStatus;
-  complianceOk: boolean;
+  origin: ContentOrigin;
   script: ContentScript;
   sourceResearchTitle?: string;
 }
+
+export type ContentEditPayload = Pick<ContentItem, "title" | "script">;

@@ -4,6 +4,7 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from backend.agents.content_agent import run
+from backend.integrations.supabase import salvar_conteudo
 from backend.integrations.notifier import send_alert
 
 
@@ -14,6 +15,7 @@ def main():
 
     try:
         output = run()
+        salvar_conteudo(output)
     except FileNotFoundError as e:
         print(f"\n{e}")
         send_alert(" Content Agent — pesquisa ausente", str(e))

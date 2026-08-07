@@ -1,8 +1,14 @@
 type AiScoreProps = {
-  score: number;
+  score: number | null;
 };
 
 export function AiScore({ score }: AiScoreProps) {
+  if (score === null) {
+    return (
+      <span className="font-mono text-[10px] leading-4 text-[#717182]">—</span>
+    );
+  }
+
   return (
     <div className="flex w-28 items-center gap-2">
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">

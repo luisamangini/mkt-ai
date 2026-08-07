@@ -5,6 +5,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from backend.agents.research_agent import run
 from backend.integrations.notifier import send_alert
+from backend.integrations.supabase import salvar_pesquisa 
+
+output = run()
 
 
 def main():
@@ -23,6 +26,8 @@ def main():
         )
 
         sys.exit(1)
+
+    salvar_pesquisa(output)
 
     print("\nPesquisa concluída!\n")
 

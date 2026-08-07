@@ -2,11 +2,24 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 
 app = FastAPI(title="MKT-AI API", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 API_TOKEN = os.getenv("API_TOKEN", "")
 
@@ -30,16 +43,65 @@ def run_research(authorization: str | None = Header(default=None)):
 
     try:
         from backend.agents.research_agent import run
+        from backend.integrations.supabase import salvar_pesquisa
 
         output = run()
+        salvar_pesquisa(output)
 
         return {
             "status": "ok",
             "temas": len(output.temas),
             "data": output.data,
+            "gerado_em": output.gerado_em.isoformat(),
             "temas_lista": [tema.titulo for tema in output.temas],
+            "temas_detalhados": [
+                tema.model_dump(mode="json") for tema in output.temas
+            ],
         }
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/research")
+def get_research(
+    periodo: str = "ultimos_30_dias",
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+
+    try:
+        from backend.integrations.supabase import get_pesquisas
+
+        return {
+            "status": "ok",
+            "pesquisas": get_pesquisas(periodo),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/research/execution/{execution_id}")
+def delete_research_execution(
+    execution_id: str,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+
+    try:
+        from backend.integrations.supabase import apagar_execucao_pesquisa
+
+        if not apagar_execucao_pesquisa(execution_id):
+            raise HTTPException(
+                status_code=404,
+                detail="Execução de pesquisa não encontrada.",
+            )
+
+        return {"status": "ok", "execution_id": execution_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -50,8 +112,10 @@ def run_content(authorization: str | None = Header(default=None)):
 
     try:
         from backend.agents.content_agent import run
+        from backend.integrations.supabase import salvar_conteudo
 
         output = run()
+        salvar_conteudo(output)
 
         return {
             "status": "ok",
@@ -86,8 +150,10 @@ def run_content_full(authorization: str | None = Header(default=None)):
 
     try:
         from backend.agents.content_agent import run
+        from backend.integrations.supabase import salvar_conteudo
 
         output = run()
+        salvar_conteudo(output)
         roteiros_formatados = []
 
         for i, roteiro in enumerate(output.roteiros, 1):
@@ -164,6 +230,107 @@ Arquivo salvo: data/content_{output.data}.json
 
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/content")
+def get_content(
+    periodo: str = "ultimos_30_dias",
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+
+    try:
+        from backend.integrations.supabase import get_conteudos
+
+        return {
+            "status": "ok",
+            "conteudos": get_conteudos(periodo),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ContentStatusInput(BaseModel):
+    status: str
+
+
+class ContentEditInput(BaseModel):
+    titulo: str
+    hook: str
+    desenvolvimento: list[str]
+    slides: Optional[list[str]] = None
+    cta: str
+    hashtags: list[str]
+
+
+@app.patch("/content/{execution_id}/{content_index}/status")
+def patch_content_status(
+    execution_id: str,
+    content_index: int,
+    payload: ContentStatusInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import atualizar_status_conteudo
+
+        conteudo = atualizar_status_conteudo(
+            execution_id, content_index, payload.status
+        )
+        if conteudo is None:
+            raise HTTPException(status_code=404, detail="Conteúdo não encontrado.")
+        return {"status": "ok", "conteudo": conteudo}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/content/{execution_id}/{content_index}")
+def patch_content(
+    execution_id: str,
+    content_index: int,
+    payload: ContentEditInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import atualizar_conteudo
+
+        conteudo = atualizar_conteudo(
+            execution_id, content_index, payload.model_dump()
+        )
+        if conteudo is None:
+            raise HTTPException(status_code=404, detail="Conteúdo não encontrado.")
+        return {"status": "ok", "conteudo": conteudo}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/content/{execution_id}/{content_index}")
+def delete_content(
+    execution_id: str,
+    content_index: int,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import excluir_roteiro_conteudo
+
+        conteudos = excluir_roteiro_conteudo(execution_id, content_index)
+        if conteudos is None:
+            raise HTTPException(status_code=404, detail="Conteúdo não encontrado.")
+        return {"status": "ok", "conteudos": conteudos}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

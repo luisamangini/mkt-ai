@@ -1,5 +1,5 @@
-import { Copy, ExternalLink, FileText, X } from "lucide-react";
-import type { ReactNode } from "react";
+import { Copy, ExternalLink, FileText, Trash2, X } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import type { ResearchInsight } from "@/types/research";
 
@@ -8,14 +8,59 @@ import { RelevanceScore } from "./RelevanceScore";
 type ResearchDetailsPanelProps = {
   insight: ResearchInsight;
   onClose: () => void;
+  onDeleteExecution: (executionId: string) => Promise<void>;
 };
 
 export function ResearchDetailsPanel({
   insight,
   onClose,
+  onDeleteExecution,
 }: ResearchDetailsPanelProps) {
+  const [copyFeedback, setCopyFeedback] = useState("Copiar resumo");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  async function handleCopySummary() {
+    try {
+      if (!navigator.clipboard?.writeText) {
+        throw new Error("Clipboard API indisponível");
+      }
+
+      await navigator.clipboard.writeText(insight.summary);
+      setCopyFeedback("Resumo copiado");
+    } catch {
+      setCopyFeedback("Não foi possível copiar");
+    }
+
+    window.setTimeout(() => setCopyFeedback("Copiar resumo"), 2000);
+  }
+
+  async function handleDeleteExecution() {
+    if (!insight.executionId) {
+      setDeleteError("Não foi possível identificar esta execução.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Tem certeza que deseja apagar esta execução e todos os temas gerados nela? Essa ação não pode ser desfeita.",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError("");
+
+    try {
+      await onDeleteExecution(insight.executionId);
+    } catch {
+      setDeleteError("Não foi possível apagar esta execução. Tente novamente.");
+      setDeleting(false);
+    }
+  }
+
   return (
-    <aside className="flex w-[360px] shrink-0 flex-col border-l border-black/10 bg-white">
+    <aside className="flex min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-l border-black/10 bg-white">
       <div className="flex items-start justify-between border-b border-black/10 px-5 py-4">
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold leading-5 text-[#0A0A0A]">
@@ -35,7 +80,7 @@ export function ResearchDetailsPanel({
         </button>
       </div>
 
-      <div className="flex-1 space-y-5 overflow-y-auto p-5">
+      <div className="flex-1 space-y-5 overflow-y-auto overscroll-contain p-5">
         <RelevanceScore
           score={insight.relevanceScore}
           relevance={insight.relevance}
@@ -51,10 +96,6 @@ export function ResearchDetailsPanel({
             recente ao comportamento de compra do público de consórcio e oferece
             um gancho claro para conteúdo educativo ou de conversão.
           </p>
-        </DetailSection>
-
-        <DetailSection title="Dados concretos">
-          <p>{insight.rawContent}</p>
         </DetailSection>
 
         <DetailSection title="Ângulo sugerido">
@@ -90,25 +131,28 @@ export function ResearchDetailsPanel({
           </div>
         </DetailSection>
 
-        <div className="space-y-2 pt-1">
+        <div className="pt-1">
           <button
             type="button"
-            className="h-9 w-full rounded-md bg-[#030213] px-3 text-[11px] font-medium text-white"
+            onClick={handleDeleteExecution}
+            disabled={deleting}
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-md text-[11px] font-medium text-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Gerar conteúdo
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+            {deleting ? "Apagando execução..." : "Apagar esta execução"}
           </button>
+          {deleteError ? (
+            <p className="mt-2 text-[11px] leading-4 text-red-500">
+              {deleteError}
+            </p>
+          ) : null}
           <button
             type="button"
-            className="h-9 w-full rounded-md border border-black/10 px-3 text-[11px] font-medium text-[#0A0A0A] hover:bg-gray-50"
-          >
-            Ignorar
-          </button>
-          <button
-            type="button"
+            onClick={handleCopySummary}
             className="flex h-9 w-full items-center justify-center gap-2 rounded-md px-3 text-[11px] font-medium text-[#717182] hover:bg-gray-50"
           >
             <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Copiar resumo
+            {copyFeedback}
           </button>
         </div>
       </div>

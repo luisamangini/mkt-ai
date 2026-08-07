@@ -1,4 +1,4 @@
-import { Filter, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 
 import type { ContentFilter } from "@/types/content";
 
@@ -10,9 +10,9 @@ type ContentToolbarProps = {
 
 const filters: { value: ContentFilter; label: string }[] = [
   { value: "todos", label: "Todos" },
-  { value: "rascunho", label: "Rascunho" },
-  { value: "aprovacao", label: "Aprovação" },
+  { value: "aprovado", label: "Aprovado" },
   { value: "publicado", label: "Publicado" },
+  { value: "descartado", label: "Descartado" },
 ];
 
 export function ContentToolbar({
@@ -43,13 +43,6 @@ export function ContentToolbar({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="flex h-9 items-center gap-2 rounded-md border border-black/10 bg-white px-3 text-[11px] font-medium text-[#0A0A0A] hover:bg-gray-50"
-        >
-          <Filter className="h-3.5 w-3.5" strokeWidth={1.8} />
-          Filtrar
-        </button>
         <button
           type="button"
           className="flex h-9 items-center gap-2 rounded-md bg-[#030213] px-3 text-[11px] font-medium text-white"

@@ -1,10 +1,11 @@
 # backend/integrations/supabase.py
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from supabase import create_client, Client
-from backend.config.settings import SUPABASE_URL, SUPABASE_KEY
+from backend.config.settings import ENV, SUPABASE_URL, SUPABASE_KEY
 
 
 def get_client() -> Client:
@@ -93,6 +94,308 @@ def get_interacoes_lead(lead_id: str) -> list[dict]:
         .execute()
     )
     return resp.data or []
+
+
+# ── Pesquisas ────────────────────────────────────────────────────────────────
+
+def salvar_pesquisa(output) -> dict:
+    """Persiste uma execução completa do Research Agent sem sobrescrevê-la."""
+    client = get_client()
+    gerado_em = output.gerado_em.isoformat()
+
+    existente = (
+        client.table("execucoes")
+        .select("*")
+        .eq("agent", "research_result")
+        .eq("timestamp", gerado_em)
+        .limit(1)
+        .execute()
+    )
+    if existente.data:
+        return existente.data[0]
+
+    dados = output.model_dump(mode="json")
+    metadata = output.model_dump(mode="json")
+    for roteiro in metadata.get("roteiros", []):
+        roteiro["status_editorial"] = "sem_status"
+        roteiro["origin"] = "ai"
+
+    resp = client.table("execucoes").insert({
+        "timestamp": gerado_em,
+        "agent": "research_result",
+        "status": output.status.value,
+        "resultado": f"{len(output.temas)} temas persistidos",
+        "erro": output.erro or "",
+        "metadata": dados,
+        "ambiente": ENV,
+    }).execute()
+    return resp.data[0] if resp.data else {}
+
+
+def get_pesquisas(periodo: str = "ultimos_30_dias") -> list[dict]:
+    """Consulta pesquisas persistidas, sem executar qualquer agente."""
+    agora = datetime.now(timezone.utc)
+    inicios = {
+        "hoje": agora.replace(hour=0, minute=0, second=0, microsecond=0),
+        "ultimas_24h": agora - timedelta(hours=24),
+        "ultimos_7_dias": agora - timedelta(days=7),
+        "ultimos_30_dias": agora - timedelta(days=30),
+    }
+    if periodo not in inicios:
+        raise ValueError("Período de pesquisa inválido.")
+
+    resp = (
+        get_client().table("execucoes")
+        .select("id,timestamp,status,metadata")
+        .eq("agent", "research_result")
+        .gte("timestamp", inicios[periodo].isoformat())
+        .order("timestamp", desc=True)
+    ).execute()
+
+    return [
+        {
+            **registro["metadata"],
+            "execution_id": str(registro["id"]),
+        }
+        for registro in (resp.data or [])
+        if isinstance(registro.get("metadata"), dict)
+    ]
+
+
+def apagar_execucao_pesquisa(execution_id: str) -> bool:
+    """Apaga somente a execução de pesquisa correspondente ao ID informado."""
+    resp = (
+        get_client().table("execucoes")
+        .delete()
+        .eq("id", execution_id)
+        .eq("agent", "research_result")
+        .execute()
+    )
+    return bool(resp.data)
+
+
+# ── Conteúdos ────────────────────────────────────────────────────────────────
+
+def salvar_conteudo(output) -> dict:
+    """Persiste uma execução completa do Content Agent sem duplicá-la."""
+    client = get_client()
+    gerado_em = output.gerado_em.isoformat()
+
+    existente = (
+        client.table("execucoes")
+        .select("*")
+        .eq("agent", "content_result")
+        .eq("timestamp", gerado_em)
+        .limit(1)
+        .execute()
+    )
+    if existente.data:
+        return existente.data[0]
+
+    resp = client.table("execucoes").insert({
+        "timestamp": gerado_em,
+        "agent": "content_result",
+        "status": "ok",
+        "resultado": f"{output.total_roteiros} roteiros persistidos",
+        "erro": "",
+        "metadata": metadata,
+        "ambiente": ENV,
+    }).execute()
+    return resp.data[0] if resp.data else {}
+
+
+def get_conteudos(periodo: str = "ultimos_30_dias") -> list[dict]:
+    """Consulta e achata conteúdos persistidos, sem executar agentes."""
+    agora = datetime.now(timezone.utc)
+    inicios = {
+        "hoje": agora.replace(hour=0, minute=0, second=0, microsecond=0),
+        "ultimas_24h": agora - timedelta(hours=24),
+        "ultimos_7_dias": agora - timedelta(days=7),
+        "ultimos_30_dias": agora - timedelta(days=30),
+    }
+    if periodo not in inicios:
+        raise ValueError("Período de conteúdo inválido.")
+
+    resp = (
+        get_client().table("execucoes")
+        .select("id,timestamp,metadata")
+        .eq("agent", "content_result")
+        .gte("timestamp", inicios[periodo].isoformat())
+        .order("timestamp", desc=True)
+        .execute()
+    )
+
+    conteudos: list[dict] = []
+    for registro in resp.data or []:
+        metadata = registro.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+
+        roteiros = metadata.get("roteiros")
+        if not isinstance(roteiros, list):
+            continue
+
+        execution_id = str(registro["id"])
+        for indice, roteiro in enumerate(roteiros):
+            if not isinstance(roteiro, dict):
+                continue
+
+            conteudos.append({
+                **roteiro,
+                "id": f"{execution_id}:{indice}",
+                "execution_id": execution_id,
+                "content_index": indice,
+                "status_editorial": roteiro.get(
+                    "status_editorial", "sem_status"
+                ),
+                "origin": roteiro.get("origin", "ai"),
+            })
+
+    return conteudos
+
+
+def _atualizar_roteiro_persistido(
+    execution_id: str,
+    content_index: int,
+    atualizar,
+) -> dict | None:
+    client = get_client()
+    resposta = (
+        client.table("execucoes")
+        .select("metadata")
+        .eq("id", execution_id)
+        .eq("agent", "content_result")
+        .limit(1)
+        .execute()
+    )
+    if not resposta.data:
+        return None
+
+    metadata = resposta.data[0].get("metadata")
+    roteiros = metadata.get("roteiros") if isinstance(metadata, dict) else None
+    if not isinstance(roteiros, list) or not 0 <= content_index < len(roteiros):
+        return None
+    if not isinstance(roteiros[content_index], dict):
+        return None
+
+    atualizar(roteiros[content_index])
+    client.table("execucoes").update({"metadata": metadata}).eq(
+        "id", execution_id
+    ).eq("agent", "content_result").execute()
+
+    roteiro = roteiros[content_index]
+    return {
+        **roteiro,
+        "id": f"{execution_id}:{content_index}",
+        "execution_id": execution_id,
+        "content_index": content_index,
+        "status_editorial": roteiro.get("status_editorial", "sem_status"),
+        "origin": roteiro.get("origin", "ai"),
+    }
+
+
+def atualizar_status_conteudo(
+    execution_id: str,
+    content_index: int,
+    status: str,
+) -> dict | None:
+    permitidos = {"sem_status", "aprovado", "publicado", "descartado"}
+    if status not in permitidos:
+        raise ValueError("Status editorial inválido.")
+
+    return _atualizar_roteiro_persistido(
+        execution_id,
+        content_index,
+        lambda roteiro: roteiro.update({"status_editorial": status}),
+    )
+
+
+def atualizar_conteudo(
+    execution_id: str,
+    content_index: int,
+    dados: dict,
+) -> dict | None:
+    def aplicar(roteiro: dict) -> None:
+        roteiro["titulo_interno"] = dados["titulo"]
+        roteiro["hashtags"] = dados["hashtags"]
+        roteiro_interno = roteiro.get("roteiro")
+        if not isinstance(roteiro_interno, dict):
+            roteiro_interno = {}
+            roteiro["roteiro"] = roteiro_interno
+        roteiro_interno.update({
+            "hook": dados["hook"],
+            "desenvolvimento": dados["desenvolvimento"],
+            "cta": dados["cta"],
+            "slides": [
+                {"ordem": indice, "texto": texto}
+                for indice, texto in enumerate(dados["slides"], start=1)
+            ] if dados["slides"] is not None else None,
+        })
+
+    return _atualizar_roteiro_persistido(
+        execution_id, content_index, aplicar
+    )
+
+
+def excluir_roteiro_conteudo(
+    execution_id: str,
+    content_index: int,
+) -> list[dict] | None:
+    """Exclui um roteiro; remove a execução somente quando ela fica vazia."""
+    client = get_client()
+    resposta = (
+        client.table("execucoes")
+        .select("metadata")
+        .eq("id", execution_id)
+        .eq("agent", "content_result")
+        .limit(1)
+        .execute()
+    )
+    if not resposta.data:
+        return None
+
+    metadata = resposta.data[0].get("metadata")
+    roteiros = metadata.get("roteiros") if isinstance(metadata, dict) else None
+    if not isinstance(roteiros, list) or not 0 <= content_index < len(roteiros):
+        return None
+
+    roteiros.pop(content_index)
+    if not roteiros:
+        (
+            client.table("execucoes")
+            .delete()
+            .eq("id", execution_id)
+            .eq("agent", "content_result")
+            .execute()
+        )
+        return []
+
+    metadata["total_roteiros"] = len(roteiros)
+    (
+        client.table("execucoes")
+        .update({
+            "metadata": metadata,
+            "resultado": f"{len(roteiros)} roteiros persistidos",
+        })
+        .eq("id", execution_id)
+        .eq("agent", "content_result")
+        .execute()
+    )
+
+    return [
+        {
+            **roteiro,
+            "id": f"{execution_id}:{indice}",
+            "execution_id": execution_id,
+            "content_index": indice,
+            "status_editorial": roteiro.get(
+                "status_editorial", "sem_status"
+            ),
+            "origin": roteiro.get("origin", "ai"),
+        }
+        for indice, roteiro in enumerate(roteiros)
+        if isinstance(roteiro, dict)
+    ]
 
 # ── Dashboard Snapshots ───────────────────────────────────────────────────────
 

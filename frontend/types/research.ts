@@ -21,6 +21,7 @@ export interface ResearchSource {
 
 export interface ResearchInsight {
   id: string;
+  executionId?: string;
   title: string;
   summary: string;
   rawContent: string;

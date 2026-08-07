@@ -1,8 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
+import {
+  deleteResearchExecution,
+  fetchResearchInsights,
+} from "@/services/research";
 import type {
   ResearchCategory,
   ResearchInsight,
@@ -117,21 +120,70 @@ const MOCK_RESEARCH_INSIGHTS: ResearchInsight[] = [
 export function ResearchPageContent() {
   const [period, setPeriod] = useState<ResearchPeriod>("hoje");
   const [category, setCategory] = useState<ResearchCategory>("todos");
+  const [insights, setInsights] = useState<ResearchInsight[]>(
+    MOCK_RESEARCH_INSIGHTS,
+  );
+  const [generatedAtLabel, setGeneratedAtLabel] = useState("hoje às 16:00");
+  const [loading, setLoading] = useState(true);
+  const [usingFallback, setUsingFallback] = useState(false);
   const [selectedInsight, setSelectedInsight] =
     useState<ResearchInsight | null>(null);
 
+  useEffect(() => {
+    let active = true;
+
+    fetchResearchInsights()
+      .then((result) => {
+        if (!active) {
+          return;
+        }
+
+        setInsights(result.insights);
+        setGeneratedAtLabel(result.generatedAtLabel);
+        setUsingFallback(false);
+        setSelectedInsight(null);
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setInsights(MOCK_RESEARCH_INSIGHTS);
+        setGeneratedAtLabel("hoje às 16:00");
+        setUsingFallback(true);
+        setSelectedInsight(null);
+      })
+      .finally(() => {
+        if (active) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const filteredInsights = useMemo(() => {
     if (category === "todos") {
-      return MOCK_RESEARCH_INSIGHTS;
+      return insights;
     }
 
-    return MOCK_RESEARCH_INSIGHTS.filter(
+    return insights.filter(
       (insight) => insight.category === category,
     );
-  }, [category]);
+  }, [category, insights]);
+
+  async function handleDeleteExecution(executionId: string) {
+    await deleteResearchExecution(executionId);
+    setInsights((current) =>
+      current.filter((insight) => insight.executionId !== executionId),
+    );
+    setSelectedInsight(null);
+  }
 
   return (
-    <div className="flex min-h-[calc(100vh-96px)] min-w-0 flex-1 overflow-hidden">
+    <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
       <ResearchFilters
         period={period}
         category={category}
@@ -142,42 +194,66 @@ export function ResearchPageContent() {
         }}
       />
 
-      <section className="min-w-0 flex-1 overflow-y-auto">
+      <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain">
         <header className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 px-5 py-4">
           <div>
             <div className="text-sm font-semibold leading-5 text-[#0A0A0A]">
               {filteredInsights.length} resultados
             </div>
             <div className="mt-1 text-[11px] leading-4 text-[#717182]">
-              Última execução: hoje às 16:00
+              {loading
+                ? "Carregando dados da pesquisa..."
+                : `Última execução: ${generatedAtLabel}`}
             </div>
           </div>
-
-          <button
-            type="button"
-            className="flex h-9 items-center gap-2 rounded-md border border-black/10 bg-white px-3 text-[11px] font-medium text-[#0A0A0A] hover:bg-gray-50"
-          >
-            <Download className="h-3.5 w-3.5" strokeWidth={1.8} />
-            Exportar
-          </button>
         </header>
 
         <div className="space-y-3 p-5">
-          {filteredInsights.map((insight) => (
-            <ResearchCard
-              key={insight.id}
-              insight={insight}
-              selected={selectedInsight?.id === insight.id}
-              onSelect={setSelectedInsight}
-            />
-          ))}
+          {usingFallback ? (
+            <div className="rounded-[10px] border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-4 text-amber-700">
+              Não foi possível carregar os dados reais. Exibindo dados de
+              demonstração.
+            </div>
+          ) : null}
+
+          {loading ? (
+            <>
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="rounded-[10px] border border-black/10 bg-white p-4"
+                >
+                  <div className="mb-3 h-4 w-28 rounded bg-gray-100" />
+                  <div className="h-4 w-3/4 rounded bg-gray-100" />
+                  <div className="mt-3 h-3 w-full rounded bg-gray-100" />
+                  <div className="mt-2 h-3 w-2/3 rounded bg-gray-100" />
+                </div>
+              ))}
+            </>
+          ) : (
+            filteredInsights.map((insight) => (
+              <ResearchCard
+                key={insight.id}
+                insight={insight}
+                selected={selectedInsight?.id === insight.id}
+                onSelect={setSelectedInsight}
+              />
+            ))
+          )}
+
+          {!loading && filteredInsights.length === 0 ? (
+            <div className="rounded-[10px] border border-black/10 bg-white p-4 text-[11px] text-[#717182]">
+              Nenhum resultado encontrado para os filtros selecionados.
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {selectedInsight ? (
+      {!loading && selectedInsight ? (
         <ResearchDetailsPanel
           insight={selectedInsight}
           onClose={() => setSelectedInsight(null)}
+          onDeleteExecution={handleDeleteExecution}
         />
       ) : null}
     </div>

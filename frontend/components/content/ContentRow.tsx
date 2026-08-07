@@ -1,6 +1,5 @@
 import type { ContentItem, ContentPillar } from "@/types/content";
 
-import { AiScore } from "./AiScore";
 import { ContentFormatBadge } from "./ContentFormatBadge";
 import { ContentStatusBadge } from "./ContentStatusBadge";
 
@@ -27,10 +26,7 @@ export function ContentRow({ item, selected, onSelect }: ContentRowProps) {
       }`}
     >
       <td className="min-w-[280px] px-5 py-4">
-        <div className="font-mono text-[10px] leading-4 text-[#717182]">
-          {item.id}
-        </div>
-        <div className="mt-1 line-clamp-2 text-[12px] font-medium leading-5 text-[#0A0A0A]">
+        <div className="line-clamp-2 text-[12px] font-medium leading-5 text-[#0A0A0A]">
           {item.title}
         </div>
       </td>
@@ -43,14 +39,8 @@ export function ContentRow({ item, selected, onSelect }: ContentRowProps) {
       <td className="min-w-[110px] px-3 py-4">
         <ContentStatusBadge status={item.status} />
       </td>
-      <td className="min-w-[130px] px-3 py-4">
-        <AiScore score={item.aiScore} />
-      </td>
       <td className="min-w-[90px] px-3 py-4 text-[11px] leading-4 text-[#717182]">
         {item.createdAt}
-      </td>
-      <td className="min-w-[120px] px-5 py-4">
-        <ContentStatusBadge approvalStatus={item.approvalStatus} />
       </td>
     </tr>
   );

@@ -12,6 +12,14 @@ venv/
 
 # macOS
 .DS_Store
-# Generated runtime files
+
+# Logs
+logs/
+*.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+
 data/
 logs/

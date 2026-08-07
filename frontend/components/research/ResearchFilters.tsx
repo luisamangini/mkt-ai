@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useState, type ReactNode } from "react";
 
 import type { ResearchCategory, ResearchPeriod } from "@/types/research";
 
@@ -31,31 +32,55 @@ export function ResearchFilters({
   onPeriodChange,
   onCategoryChange,
 }: ResearchFiltersProps) {
-  return (
-    <aside className="w-[232px] shrink-0 border-r border-black/10 bg-white p-4">
-      <FilterSection title="PERÍODO">
-        {periods.map((item) => (
-          <FilterButton
-            key={item.value}
-            label={item.label}
-            selected={period === item.value}
-            onClick={() => onPeriodChange(item.value)}
-          />
-        ))}
-      </FilterSection>
+  const [collapsed, setCollapsed] = useState(false);
 
-      <div className="mt-6">
-        <FilterSection title="CATEGORIA">
-          {categories.map((item) => (
-            <FilterButton
-              key={item.value}
-              label={item.label}
-              selected={category === item.value}
-              onClick={() => onCategoryChange(item.value)}
-            />
-          ))}
-        </FilterSection>
-      </div>
+  return (
+    <aside
+      className={`relative shrink-0 overflow-hidden border-r border-black/10 bg-white transition-[width] duration-200 ease-out ${
+        collapsed ? "w-12 p-2" : "w-[232px] p-4"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setCollapsed((current) => !current)}
+        aria-label={collapsed ? "Expandir filtros" : "Recolher filtros"}
+        title={collapsed ? "Expandir filtros" : "Recolher filtros"}
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md text-[#717182] transition-colors hover:bg-gray-50 hover:text-[#0A0A0A]"
+      >
+        {collapsed ? (
+          <PanelLeftOpen className="h-4 w-4" strokeWidth={1.8} />
+        ) : (
+          <PanelLeftClose className="h-4 w-4" strokeWidth={1.8} />
+        )}
+      </button>
+
+      {!collapsed ? (
+        <div>
+          <FilterSection title="PERÍODO">
+            {periods.map((item) => (
+              <FilterButton
+                key={item.value}
+                label={item.label}
+                selected={period === item.value}
+                onClick={() => onPeriodChange(item.value)}
+              />
+            ))}
+          </FilterSection>
+
+          <div className="mt-6">
+            <FilterSection title="CATEGORIA">
+              {categories.map((item) => (
+                <FilterButton
+                  key={item.value}
+                  label={item.label}
+                  selected={category === item.value}
+                  onClick={() => onCategoryChange(item.value)}
+                />
+              ))}
+            </FilterSection>
+          </div>
+        </div>
+      ) : null}
     </aside>
   );
 }
