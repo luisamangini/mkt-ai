@@ -162,6 +162,33 @@ def get_pesquisas(periodo: str = "ultimos_30_dias") -> list[dict]:
     ]
 
 
+def get_pesquisa_mais_recente(data: str | None = None):
+    """Retorna a pesquisa persistida mais recente, opcionalmente de uma data."""
+    from schemas.research import ResearchOutput
+
+    resposta = (
+        get_client().table("execucoes")
+        .select("id,timestamp,metadata")
+        .eq("agent", "research_result")
+        .order("timestamp", desc=True)
+        .limit(50)
+        .execute()
+    )
+
+    for registro in resposta.data or []:
+        metadata = registro.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        if data is not None and metadata.get("data") != data:
+            continue
+        try:
+            return str(registro["id"]), ResearchOutput.model_validate(metadata)
+        except (KeyError, ValueError, TypeError):
+            continue
+
+    return None
+
+
 def apagar_execucao_pesquisa(execution_id: str) -> bool:
     """Apaga somente a execução de pesquisa correspondente ao ID informado."""
     resp = (
@@ -176,7 +203,10 @@ def apagar_execucao_pesquisa(execution_id: str) -> bool:
 
 # ── Conteúdos ────────────────────────────────────────────────────────────────
 
-def salvar_conteudo(output) -> dict:
+def salvar_conteudo(
+    output,
+    research_execution_id: str | None = None,
+) -> dict:
     """Persiste uma execução completa do Content Agent sem duplicá-la."""
     client = get_client()
     gerado_em = output.gerado_em.isoformat()
@@ -191,6 +221,13 @@ def salvar_conteudo(output) -> dict:
     )
     if existente.data:
         return existente.data[0]
+
+    metadata = output.model_dump(mode="json")
+    metadata["research_execution_id"] = research_execution_id
+    for roteiro in metadata.get("roteiros", []):
+        if isinstance(roteiro, dict):
+            roteiro["status_editorial"] = "sem_status"
+            roteiro["origin"] = "ai"
 
     resp = client.table("execucoes").insert({
         "timestamp": gerado_em,

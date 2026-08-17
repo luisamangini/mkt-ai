@@ -46,13 +46,14 @@ def run_research(authorization: str | None = Header(default=None)):
         from backend.integrations.supabase import salvar_pesquisa
 
         output = run()
-        salvar_pesquisa(output)
+        persisted = salvar_pesquisa(output)
 
         return {
             "status": "ok",
             "temas": len(output.temas),
             "data": output.data,
             "gerado_em": output.gerado_em.isoformat(),
+            "execution_id": str(persisted.get("id", "")),
             "temas_lista": [tema.titulo for tema in output.temas],
             "temas_detalhados": [
                 tema.model_dump(mode="json") for tema in output.temas
@@ -112,15 +113,27 @@ def run_content(authorization: str | None = Header(default=None)):
 
     try:
         from backend.agents.content_agent import run
-        from backend.integrations.supabase import salvar_conteudo
+        from backend.integrations.supabase import (
+            get_pesquisa_mais_recente,
+            salvar_conteudo,
+        )
 
-        output = run()
-        salvar_conteudo(output)
+        hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        persisted_research = get_pesquisa_mais_recente(hoje)
+        if persisted_research is None:
+            raise FileNotFoundError(
+                f"Pesquisa persistida do dia {hoje} não encontrada."
+            )
+        research_execution_id, research = persisted_research
+        output = run(research=research)
+        persisted = salvar_conteudo(output, research_execution_id)
 
         return {
             "status": "ok",
             "data": output.data,
             "total_roteiros": output.total_roteiros,
+            "execution_id": str(persisted.get("id", "")),
+            "research_execution_id": research_execution_id,
             "roteiros": [
                 {
                     "titulo": roteiro.titulo_interno,
@@ -150,10 +163,20 @@ def run_content_full(authorization: str | None = Header(default=None)):
 
     try:
         from backend.agents.content_agent import run
-        from backend.integrations.supabase import salvar_conteudo
+        from backend.integrations.supabase import (
+            get_pesquisa_mais_recente,
+            salvar_conteudo,
+        )
 
-        output = run()
-        salvar_conteudo(output)
+        hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        persisted_research = get_pesquisa_mais_recente(hoje)
+        if persisted_research is None:
+            raise FileNotFoundError(
+                f"Pesquisa persistida do dia {hoje} não encontrada."
+            )
+        research_execution_id, research = persisted_research
+        output = run(research=research)
+        persisted = salvar_conteudo(output, research_execution_id)
         roteiros_formatados = []
 
         for i, roteiro in enumerate(output.roteiros, 1):
@@ -212,6 +235,8 @@ Arquivo salvo: data/content_{output.data}.json
             "status": "ok",
             "data": output.data,
             "total_roteiros": output.total_roteiros,
+            "execution_id": str(persisted.get("id", "")),
+            "research_execution_id": research_execution_id,
             "roteiros": [
                 {
                     "titulo": roteiro.titulo_interno,

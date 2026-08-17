@@ -681,6 +681,7 @@ def _carregar_json_resposta(
 
 def run(
     data: str | None = None,
+    research: ResearchOutput | None = None,
 ) -> ContentDiario:
     """
     Gera um roteiro para cada tema retornado pelo Research Agent.
@@ -695,7 +696,10 @@ def run(
 
     print(" Carregando pesquisa...")
 
-    research = _load_research(hoje)
+    # O endpoint de automação fornece a pesquisa persistida no Supabase.
+    # O arquivo permanece apenas como compatibilidade para execução local.
+    if research is None:
+        research = _load_research(hoje)
 
     if not research or not research.temas:
         erro = (
