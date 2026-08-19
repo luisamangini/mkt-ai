@@ -77,6 +77,12 @@ SUPABASE_KEY = os.getenv(
     "",
 )
 
+# URL pública usada nos redirects enviados por e-mail.
+APP_URL = os.getenv(
+    "APP_URL",
+    "",
+).rstrip("/")
+
 # ─────────────────────────────────────────────
 # Notificações
 # ─────────────────────────────────────────────
