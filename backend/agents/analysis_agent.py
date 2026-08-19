@@ -383,6 +383,8 @@ def _analisar_snapshot(
         anteriores,
     )
 
+    system_prompt = _build_system_prompt()
+    
     user_prompt = f"""
 Analise o DashboardSnapshot abaixo e gere o diagnóstico semanal.
 
@@ -396,14 +398,21 @@ Gere somente recomendações que possam ser executadas pelo operador.
 """.strip()
 
     resposta_raw = get_completion(
-        system=_build_system_prompt(),
+        system=system_prompt,
         user=user_prompt,
-        max_tokens=1500,
+        max_tokens=3000,
         json_mode=True,
     )
 
-    return json.loads(resposta_raw)
+    resposta_limpa = resposta_raw.strip()
 
+    if resposta_limpa.startswith("```"):
+        resposta_limpa = resposta_limpa.removeprefix("```json")
+        resposta_limpa = resposta_limpa.removeprefix("```")
+        resposta_limpa = resposta_limpa.removesuffix("```")
+        resposta_limpa = resposta_limpa.strip()
+
+    return json.loads(resposta_limpa)
 
 def run(
     date_preset: str = "last_7d",

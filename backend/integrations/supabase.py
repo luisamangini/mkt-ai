@@ -2,16 +2,83 @@
 import os
 import sys
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from supabase import create_client, Client
-from backend.config.settings import ENV, SUPABASE_URL, SUPABASE_KEY
+from backend.config.settings import APP_URL, ENV, SUPABASE_URL, SUPABASE_KEY
 
 
+class AuthUserAlreadyExistsError(ValueError):
+    """Indica que o e-mail informado já pertence a um usuário do Auth."""
+
+
+@lru_cache(maxsize=1)
 def get_client() -> Client:
     if not SUPABASE_URL or not SUPABASE_KEY:
         raise ValueError("SUPABASE_URL e SUPABASE_KEY precisam estar configurados no .env")
     return create_client(SUPABASE_URL, SUPABASE_KEY)
+
+
+# ── Usuários do Auth ──────────────────────────────────────────────────────────
+
+def get_auth_users() -> list[dict]:
+    """Lista usuários do Supabase Auth usando a API administrativa."""
+    client = get_client()
+    users = client.auth.admin.list_users()
+
+    return [
+        {
+            "id": str(user.id),
+            "name": (
+                user.user_metadata.get("name", "")
+                if isinstance(user.user_metadata, dict)
+                and isinstance(user.user_metadata.get("name"), str)
+                else ""
+            ),
+            "email": user.email or "",
+            "created_at": (
+                user.created_at.isoformat()
+                if isinstance(user.created_at, datetime)
+                else str(user.created_at or "")
+            ),
+            "last_sign_in_at": (
+                user.last_sign_in_at.isoformat()
+                if isinstance(user.last_sign_in_at, datetime)
+                else str(user.last_sign_in_at or "")
+            ),
+        }
+        for user in users
+    ]
+
+
+def invite_auth_user(email: str) -> None:
+    """Convida um usuário pelo Supabase Auth com redirect configurado."""
+    if not APP_URL:
+        raise RuntimeError("APP_URL não está configurada no backend.")
+
+    normalized_email = email.strip().lower()
+    existing_users = get_auth_users()
+    if any(user["email"].lower() == normalized_email for user in existing_users):
+        raise AuthUserAlreadyExistsError
+
+    client = get_client()
+    try:
+        client.auth.admin.invite_user_by_email(
+            normalized_email,
+            options={"redirect_to": f"{APP_URL}/definir-senha"},
+        )
+    except Exception as error:
+        message = str(error).lower()
+        if "already" in message or "registered" in message or "exists" in message:
+            raise AuthUserAlreadyExistsError from error
+        raise RuntimeError("Não foi possível enviar o convite pelo Supabase.") from error
+
+
+def delete_auth_user(user_id: str) -> None:
+    """Remove pelo Admin API o usuário identificado por uma sessão validada."""
+    client = get_client()
+    client.auth.admin.delete_user(user_id)
 
 
 # ── Leads ─────────────────────────────────────────────────────────────────────
@@ -66,6 +133,17 @@ def atualizar_lead(lead_id: str, campos: dict) -> dict:
     return resp.data[0] if resp.data else {}
 
 
+def excluir_lead(lead_id: str) -> bool:
+    """Exclui interações e depois o lead, sem depender de ON DELETE CASCADE."""
+    client = get_client()
+    existente = client.table("leads").select("id").eq("id", lead_id).limit(1).execute()
+    if not existente.data:
+        return False
+    client.table("interacoes").delete().eq("lead_id", lead_id).execute()
+    client.table("leads").delete().eq("id", lead_id).execute()
+    return True
+
+
 def inserir_interacao(
     lead_id: str,
     tipo: str,
@@ -80,7 +158,10 @@ def inserir_interacao(
         "nota": nota,
         "proximo_passo": proximo_passo,
     }).execute()
-    return resp.data[0] if resp.data else {}
+    interacao = resp.data[0] if resp.data else {}
+    if interacao.get("criado_em"):
+        atualizar_lead(lead_id, {"ultimo_contato": interacao["criado_em"]})
+    return interacao
 
 
 def get_interacoes_lead(lead_id: str) -> list[dict]:
@@ -94,6 +175,53 @@ def get_interacoes_lead(lead_id: str) -> list[dict]:
         .execute()
     )
     return resp.data or []
+
+
+def get_leads_crm() -> list[dict]:
+    """Retorna todos os leads do funil, sem executar agentes."""
+    client = get_client()
+    resp = (
+        client.table("leads")
+        .select("*")
+        .order("criado_em", desc=True)
+        .execute()
+    )
+    leads = resp.data or []
+    indicadores = (
+        client.table("leads_ativos")
+        .select("id,precisa_followup,lead_frio,tempo_sem_contato")
+        .execute()
+    )
+    indicadores_por_id = {
+        str(item["id"]): item for item in indicadores.data or []
+    }
+    interacoes = client.table("interacoes").select("lead_id,criado_em").execute()
+    ultima_interacao_por_lead: dict[str, datetime] = {}
+    for interacao in interacoes.data or []:
+        data = datetime.fromisoformat(interacao["criado_em"].replace("Z", "+00:00"))
+        lead_id = str(interacao["lead_id"])
+        if data > ultima_interacao_por_lead.get(lead_id, datetime.min.replace(tzinfo=timezone.utc)):
+            ultima_interacao_por_lead[lead_id] = data
+
+    agora = datetime.now(timezone.utc)
+    resultado = []
+    for lead in leads:
+        lead_id = str(lead["id"])
+        datas = [ultima_interacao_por_lead.get(lead_id)]
+        for campo in ("ultimo_contato", "criado_em"):
+            if lead.get(campo):
+                datas.append(datetime.fromisoformat(lead[campo].replace("Z", "+00:00")))
+        ultima_atividade = max(data for data in datas if data is not None)
+        dias_sem_atividade = max(0, (agora - ultima_atividade).days)
+        ativo = lead.get("status") not in {"fechado", "perdido"}
+        resultado.append({
+            **lead,
+            **indicadores_por_id.get(lead_id, {}),
+            "ultima_atividade": ultima_atividade.isoformat(),
+            "dias_sem_atividade": dias_sem_atividade,
+            "precisa_followup": ativo and dias_sem_atividade >= 3,
+        })
+    return resultado
 
 
 # ── Pesquisas ────────────────────────────────────────────────────────────────
@@ -137,9 +265,9 @@ def get_pesquisas(periodo: str = "ultimos_30_dias") -> list[dict]:
     agora = datetime.now(timezone.utc)
     inicios = {
         "hoje": agora.replace(hour=0, minute=0, second=0, microsecond=0),
-        "ultimas_24h": agora - timedelta(hours=24),
         "ultimos_7_dias": agora - timedelta(days=7),
         "ultimos_30_dias": agora - timedelta(days=30),
+        "ultimos_90_dias": agora - timedelta(days=90),
     }
     if periodo not in inicios:
         raise ValueError("Período de pesquisa inválido.")
@@ -434,6 +562,92 @@ def excluir_roteiro_conteudo(
         if isinstance(roteiro, dict)
     ]
 
+
+# ── Calendário ────────────────────────────────────────────────────────────────
+
+def get_calendar_items(
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> list[dict]:
+    """Retorna somente roteiros agendados, sem executar agentes."""
+    hoje = datetime.now(timezone.utc).date()
+    inicio = datetime.strptime(start_date, "%Y-%m-%d").date() if start_date else hoje - timedelta(days=31)
+    fim = datetime.strptime(end_date, "%Y-%m-%d").date() if end_date else hoje + timedelta(days=93)
+    if fim < inicio:
+        raise ValueError("A data final deve ser igual ou posterior à inicial.")
+
+    resposta = (
+        get_client().table("execucoes")
+        .select("id,metadata")
+        .eq("agent", "content_result")
+        .execute()
+    )
+
+    items: list[dict] = []
+    for registro in resposta.data or []:
+        metadata = registro.get("metadata")
+        roteiros = metadata.get("roteiros") if isinstance(metadata, dict) else None
+        if not isinstance(roteiros, list):
+            continue
+        execution_id = str(registro["id"])
+        for indice, roteiro in enumerate(roteiros):
+            if not isinstance(roteiro, dict):
+                continue
+            scheduled_date = roteiro.get("scheduled_date")
+            if not isinstance(scheduled_date, str):
+                continue
+            try:
+                data_agendada = datetime.strptime(scheduled_date, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if not inicio <= data_agendada <= fim:
+                continue
+            items.append({
+                **roteiro,
+                "id": f"{execution_id}:{indice}",
+                "execution_id": execution_id,
+                "content_index": indice,
+                "status_editorial": roteiro.get("status_editorial", "sem_status"),
+                "origin": roteiro.get("origin", "ai"),
+            })
+
+    return sorted(
+        items,
+        key=lambda item: (
+            item["scheduled_date"],
+            item.get("scheduled_time") or "",
+        ),
+    )
+
+
+def agendar_conteudo(
+    execution_id: str,
+    content_index: int,
+    scheduled_date: str,
+    scheduled_time: str | None,
+) -> dict | None:
+    return _atualizar_roteiro_persistido(
+        execution_id,
+        content_index,
+        lambda roteiro: roteiro.update({
+            "scheduled_date": scheduled_date,
+            "scheduled_time": scheduled_time,
+        }),
+    )
+
+
+def remover_agendamento_conteudo(
+    execution_id: str,
+    content_index: int,
+) -> dict | None:
+    def remover(roteiro: dict) -> None:
+        roteiro.pop("scheduled_date", None)
+        roteiro.pop("scheduled_time", None)
+
+    return _atualizar_roteiro_persistido(
+        execution_id, content_index, remover
+    )
+
 # ── Dashboard Snapshots ───────────────────────────────────────────────────────
 
 def salvar_snapshot(snapshot) -> dict:
@@ -459,8 +673,7 @@ def salvar_snapshot(snapshot) -> dict:
         "leads_meta": snapshot.anuncios.leads_meta,
         "frequencia": snapshot.anuncios.frequencia,
         "hook_rate": snapshot.anuncios.hook_rate,
-        "campanhas": snapshot.anuncios.campanhas,
-        # CRM
+        "campanhas": snapshot.anuncios.model_dump().get("campanhas", []),        # CRM
         "leads_novos": snapshot.crm.leads_novos,
         "leads_qualificados": snapshot.crm.leads_qualificados,
         "leads_em_negociacao": snapshot.crm.leads_em_negociacao,
@@ -504,3 +717,46 @@ def get_snapshots_anteriores(semana_atual: str, limite: int = 4) -> list[dict]:
         .execute()
     )
     return resp.data or []
+
+
+def get_campaigns_dashboard(limite: int = 16) -> dict:
+    """Lê snapshots persistidos para a tela analítica de campanhas."""
+    campos = (
+        "semana,gerado_em,periodo_solicitado,periodo_utilizado,aviso,"
+        "gasto,impressoes,alcance,cliques,ctr,cpm,cpl_bruto,leads_meta,"
+        "frequencia,hook_rate,campanhas,leads_novos,leads_qualificados,"
+        "leads_em_negociacao,leads_fechados,leads_perdidos,"
+        "taxa_qualificacao,taxa_fechamento,custo_lead_qualificado,"
+        "custo_lead_fechado"
+    )
+    resposta = (
+        get_client().table("dashboard_snapshots")
+        .select(campos)
+        .order("semana", desc=True)
+        .limit(limite)
+        .execute()
+    )
+    snapshots = resposta.data or []
+    atual = snapshots[0] if snapshots else None
+    return {
+        "current": atual,
+        "previous": snapshots[1] if len(snapshots) > 1 else None,
+        "history": list(reversed(snapshots)),
+        "campaigns": atual.get("campanhas", []) if atual else [],
+    }
+
+
+def get_dashboard_instagram(semana: str | None = None) -> dict | None:
+    """Lê somente o resumo de Instagram de um snapshot persistido."""
+    consulta = (
+        get_client().table("dashboard_snapshots")
+        .select(
+            "semana,instagram_username,instagram_seguidores,instagram_posts,"
+            "instagram_alcance,instagram_visualizacoes,"
+            "instagram_visitas_perfil"
+        )
+    )
+    if semana:
+        consulta = consulta.eq("semana", semana)
+    resposta = consulta.order("semana", desc=True).limit(1).execute()
+    return resposta.data[0] if resposta.data else None
