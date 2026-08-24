@@ -50,28 +50,28 @@ export function CalendarToolbar({
       : `Semana ${getWeekNumber(currentDate)}`;
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 px-5 py-4">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
       <div className="flex items-center gap-3">
-        <button type="button" onClick={onPrevious} className="flex h-8 w-8 items-center justify-center rounded-md border border-black/10 hover:bg-gray-50">
+        <button type="button" onClick={onPrevious} className="flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-muted">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div>
-          <div className="text-sm font-semibold text-[#0A0A0A]">{period}</div>
-          <div className="text-[11px] text-[#717182]">{secondary}</div>
+          <div className="text-sm font-semibold text-foreground">{period}</div>
+          <div className="text-[11px] text-muted-foreground">{secondary}</div>
         </div>
-        <button type="button" onClick={onNext} className="flex h-8 w-8 items-center justify-center rounded-md border border-black/10 hover:bg-gray-50">
+        <button type="button" onClick={onNext} className="flex h-8 w-8 items-center justify-center rounded-md border border-border hover:bg-muted">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="flex rounded-md border border-black/10 bg-white p-0.5">
+      <div className="flex rounded-md border border-border bg-card p-0.5">
         {(["weekly", "monthly"] as CalendarView[]).map((item) => (
           <button
             key={item}
             type="button"
             onClick={() => onViewChange(item)}
             className={`h-8 rounded px-3 text-[11px] font-medium ${
-              view === item ? "bg-gray-100 text-[#0A0A0A]" : "text-[#717182]"
+              view === item ? "bg-muted text-foreground" : "text-muted-foreground"
             }`}
           >
             {item === "weekly" ? "Semanal" : "Mensal"}

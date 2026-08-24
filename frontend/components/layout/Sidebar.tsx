@@ -14,12 +14,11 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import type { MockAuthUser } from "@/types/auth";
 
 type SidebarProps = {
   collapsed: boolean;
   onToggle: () => void;
-  user: MockAuthUser;
+  userLabel: string;
   onLogout: () => void;
 };
 
@@ -60,19 +59,19 @@ const navigationSections = [
 export function Sidebar({
   collapsed,
   onToggle,
-  user,
+  userLabel,
   onLogout,
 }: SidebarProps) {
   const pathname = usePathname();
 
   return (
     <aside
-      className={`flex h-screen shrink-0 flex-col border-r border-gray-200 bg-white transition-[width] duration-200 ease-out ${
-        collapsed ? "w-[72px]" : "w-[240px]"
+      className={`flex h-screen shrink-0 flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground transition-[width] duration-200 ease-out ${
+        collapsed ? "w-[76px]" : "w-[252px]"
       }`}
     >
       <div
-        className={`flex h-16 items-center border-b border-gray-200 ${
+        className={`flex h-16 items-center border-b border-sidebar-border ${
           collapsed ? "justify-center px-3" : "justify-between px-4"
         }`}
       >
@@ -80,10 +79,10 @@ export function Sidebar({
           href="/"
           className={collapsed ? "sr-only" : "block min-w-0"}
         >
-          <div className="text-sm font-semibold leading-none text-gray-950">
+          <div className="text-sm font-semibold leading-none text-sidebar-foreground">
             ConsorIA
           </div>
-          <div className="mt-1 text-[11px] leading-none text-gray-500">
+          <div className="mt-1 text-[11px] leading-none text-muted-foreground">
             Agentes de Marketing
           </div>
         </Link>
@@ -91,7 +90,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onToggle}
-          className="flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-950"
+          className="flex h-8 w-8 items-center justify-center rounded-md border border-sidebar-border text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           aria-label={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
           title={collapsed ? "Expandir sidebar" : "Recolher sidebar"}
         >
@@ -112,7 +111,7 @@ export function Sidebar({
           {navigationSections.map((section) => (
             <div key={section.label}>
               {!collapsed ? (
-                <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                <div className="mb-2 px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                   {section.label}
                 </div>
               ) : null}
@@ -129,9 +128,9 @@ export function Sidebar({
                       key={item.href}
                       href={item.href}
                       title={collapsed ? item.label : undefined}
-                      className={`flex h-8 items-center rounded-md text-xs text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-950 ${
+                      className={`flex h-8 items-center rounded-md text-xs text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ${
                         collapsed ? "justify-center px-0" : "gap-2 px-2"
-                      } ${active ? "bg-gray-100 text-gray-950" : ""}`}
+                      } ${active ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}
                     >
                       <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
                       {!collapsed ? <span>{item.label}</span> : null}
@@ -145,7 +144,7 @@ export function Sidebar({
       </nav>
 
       <div
-        className={`shrink-0 border-t border-gray-200 py-3 ${
+        className={`shrink-0 border-t border-sidebar-border py-3 ${
           collapsed ? "px-3" : "px-4"
         }`}
       >
@@ -155,18 +154,15 @@ export function Sidebar({
             onClick={onLogout}
             aria-label="Sair"
             title="Sair"
-            className="flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-950"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           >
             <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
           </button>
         ) : (
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-xs font-medium leading-4 text-gray-900">
-                {user.name}
-              </div>
-              <div className="truncate text-[11px] leading-4 text-gray-500">
-                {user.role}
+              <div className="truncate text-xs font-medium leading-4 text-sidebar-foreground">
+                {userLabel}
               </div>
             </div>
             <button
@@ -174,7 +170,7 @@ export function Sidebar({
               onClick={onLogout}
               aria-label="Sair"
               title="Sair"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-gray-500 transition-colors hover:bg-gray-50 hover:text-gray-950"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
             </button>

@@ -12,7 +12,6 @@ type ResearchFiltersProps = {
 
 const periods: { value: ResearchPeriod; label: string }[] = [
   { value: "hoje", label: "Hoje" },
-  { value: "ultimas_24h", label: "Últimas 24h" },
   { value: "ultimos_7_dias", label: "Últimos 7 dias" },
   { value: "ultimos_30_dias", label: "Últimos 30 dias" },
 ];
@@ -36,7 +35,7 @@ export function ResearchFilters({
 
   return (
     <aside
-      className={`relative shrink-0 overflow-hidden border-r border-black/10 bg-white transition-[width] duration-200 ease-out ${
+      className={`relative shrink-0 overflow-hidden border-r border-border bg-card transition-[width] duration-200 ease-out ${
         collapsed ? "w-12 p-2" : "w-[232px] p-4"
       }`}
     >
@@ -45,7 +44,7 @@ export function ResearchFilters({
         onClick={() => setCollapsed((current) => !current)}
         aria-label={collapsed ? "Expandir filtros" : "Recolher filtros"}
         title={collapsed ? "Expandir filtros" : "Recolher filtros"}
-        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md text-[#717182] transition-colors hover:bg-gray-50 hover:text-[#0A0A0A]"
+        className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         {collapsed ? (
           <PanelLeftOpen className="h-4 w-4" strokeWidth={1.8} />
@@ -94,7 +93,7 @@ function FilterSection({
 }) {
   return (
     <section>
-      <h2 className="mb-2 px-2 text-[10px] font-semibold uppercase leading-3 tracking-wide text-[#717182]">
+      <h2 className="mb-2 px-2 text-[10px] font-semibold uppercase leading-3 tracking-wide text-muted-foreground">
         {title}
       </h2>
       <div className="space-y-1">{children}</div>
@@ -117,8 +116,8 @@ function FilterButton({
       onClick={onClick}
       className={`flex h-8 w-full items-center rounded-md px-2 text-left text-xs transition-colors ${
         selected
-          ? "bg-gray-100 font-medium text-[#0A0A0A]"
-          : "text-[#717182] hover:bg-gray-50 hover:text-[#0A0A0A]"
+          ? "bg-muted font-medium text-foreground"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       {label}

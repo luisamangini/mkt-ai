@@ -2,6 +2,7 @@ import type { FunnelStage } from "@/types/campaigns";
 
 type ConversionFunnelProps = {
   stages: FunnelStage[];
+  periodLabel?: string;
 };
 
 const barColors: Record<FunnelStage["color"], string> = {
@@ -12,43 +13,36 @@ const barColors: Record<FunnelStage["color"], string> = {
   red: "bg-red-300",
 };
 
-export function ConversionFunnel({ stages }: ConversionFunnelProps) {
+export function ConversionFunnel({ stages, periodLabel }: ConversionFunnelProps) {
   return (
-    <section className="h-full rounded-[10px] border border-black/10 bg-white">
-      <div className="flex items-start justify-between gap-3 border-b border-black/10 px-4 py-3">
+    <section className="h-full rounded-[10px] border border-border bg-card">
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-[#0A0A0A]">
+          <h2 className="text-sm font-semibold text-foreground">
             Funil de Conversão
           </h2>
-          <p className="mt-1 text-[11px] text-[#717182]">
-            Avanço dos leads captados
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Distribuição atual dos leads por status
           </p>
         </div>
-        <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-medium text-[#717182]">
-          30 dias
-        </span>
+        {periodLabel ? <span className="rounded-full bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground">{periodLabel}</span> : null}
       </div>
 
       <div className="space-y-3 p-4">
         {stages.map((stage) => {
-          const width = `${Math.max(stage.percentage, 7)}%`;
+          const width = stage.quantity === 0 ? "0%" : `${Math.max(stage.percentage, 7)}%`;
 
           return (
             <div
               key={stage.name}
-              className={stage.separated ? "border-t border-black/10 pt-3" : ""}
+              className={stage.separated ? "border-t border-border pt-3" : ""}
             >
-              {stage.previousConversion ? (
-                <div className="mb-1.5 text-[10px] font-medium text-[#717182]">
-                  {stage.previousConversion}
-                </div>
-              ) : null}
               <div className="mb-1.5 flex items-center justify-between gap-3">
-                <span className="text-xs font-semibold text-[#0A0A0A]">
+                <span className="text-xs font-semibold text-foreground">
                   {stage.name}
                 </span>
-                <span className="text-[11px] text-[#717182]">
-                  <strong className="font-semibold text-[#0A0A0A]">
+                <span className="text-[11px] text-muted-foreground">
+                  <strong className="font-semibold text-foreground">
                   {stage.quantity}
                   </strong>{" "}
                   {stage.percentage.toLocaleString("pt-BR", {
@@ -58,7 +52,7 @@ export function ConversionFunnel({ stages }: ConversionFunnelProps) {
                   %
                 </span>
               </div>
-              <div className="h-6 overflow-hidden rounded-md bg-gray-100">
+              <div className="h-6 overflow-hidden rounded-md bg-muted">
                 <div
                   className={`flex h-full items-center rounded-md px-2 text-[10px] font-medium text-white ${
                     stage.separated ? "opacity-70" : ""

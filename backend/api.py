@@ -1,10 +1,11 @@
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 app = FastAPI(title="MKT-AI API", version="1.0.0")
@@ -29,12 +30,118 @@ def _verificar_token(authorization: str | None):
         raise HTTPException(status_code=401, detail="Token invalido")
 
 
+def _get_authenticated_user(authorization: str | None):
+    """Valida o access token e retorna exclusivamente o usuário da sessão."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+
+    access_token = authorization.removeprefix("Bearer ").strip()
+    if not access_token:
+        raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+
+    try:
+        from backend.integrations.supabase import get_client
+
+        response = get_client().auth.get_user(access_token)
+        if not response.user:
+            raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+        return response.user
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Sessão inválida ou expirada.")
+
+
+def _autorizar_convite(authorization: str | None):
+    """Ponto único para adicionar a validação de role administrativa no futuro."""
+    return _get_authenticated_user(authorization)
+
+
 @app.get("/health")
 def health():
     return {
         "status": "ok",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+@app.get("/users")
+def get_users(authorization: str | None = Header(default=None)):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_auth_users
+
+        return {"status": "ok", "users": get_auth_users()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class UserInviteInput(BaseModel):
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not normalized:
+            raise ValueError("O e-mail é obrigatório.")
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
+
+
+@app.post("/users/invite")
+def invite_user(
+    payload: UserInviteInput,
+    authorization: str | None = Header(default=None),
+):
+    _autorizar_convite(authorization)
+    try:
+        from backend.integrations.supabase import (
+            AuthUserAlreadyExistsError,
+            invite_auth_user,
+        )
+
+        invite_auth_user(payload.email)
+        return {
+            "status": "ok",
+            "message": "Convite enviado com sucesso.",
+        }
+    except AuthUserAlreadyExistsError:
+        raise HTTPException(
+            status_code=409,
+            detail="Já existe um usuário cadastrado com este e-mail.",
+        )
+    except RuntimeError as error:
+        if str(error) == "APP_URL não está configurada no backend.":
+            raise HTTPException(
+                status_code=503,
+                detail="O envio de convites ainda não está configurado.",
+            )
+        raise HTTPException(
+            status_code=502,
+            detail="Não foi possível enviar o convite. Tente novamente.",
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível enviar o convite. Tente novamente.",
+        )
+
+
+@app.delete("/users/me")
+def delete_current_user(authorization: str | None = Header(default=None)):
+    user = _get_authenticated_user(authorization)
+    try:
+        from backend.integrations.supabase import delete_auth_user
+
+        delete_auth_user(str(user.id))
+        return {"status": "ok"}
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível excluir sua conta. Tente novamente.",
+        )
 
 
 @app.post("/run/research")
@@ -292,6 +399,11 @@ class ContentEditInput(BaseModel):
     hashtags: list[str]
 
 
+class ContentScheduleInput(BaseModel):
+    date: str
+    time: Optional[str] = None
+
+
 @app.patch("/content/{execution_id}/{content_index}/status")
 def patch_content_status(
     execution_id: str,
@@ -356,6 +468,106 @@ def delete_content(
         return {"status": "ok", "conteudos": conteudos}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/content/{execution_id}/{content_index}/schedule")
+def patch_content_schedule(
+    execution_id: str,
+    content_index: int,
+    payload: ContentScheduleInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        data_validada = datetime.strptime(payload.date, "%Y-%m-%d")
+        if data_validada.strftime("%Y-%m-%d") != payload.date:
+            raise ValueError("a data deve usar o formato YYYY-MM-DD")
+        if payload.time:
+            horario_validado = datetime.strptime(payload.time, "%H:%M")
+            if horario_validado.strftime("%H:%M") != payload.time:
+                raise ValueError("o horário deve usar o formato HH:MM")
+        from backend.integrations.supabase import agendar_conteudo
+
+        conteudo = agendar_conteudo(
+            execution_id, content_index, payload.date, payload.time
+        )
+        if conteudo is None:
+            raise HTTPException(status_code=404, detail="Conteúdo não encontrado.")
+        return {"status": "ok", "conteudo": conteudo}
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Data ou horário inválido: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/content/{execution_id}/{content_index}/schedule")
+def delete_content_schedule(
+    execution_id: str,
+    content_index: int,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import remover_agendamento_conteudo
+
+        conteudo = remover_agendamento_conteudo(execution_id, content_index)
+        if conteudo is None:
+            raise HTTPException(status_code=404, detail="Conteúdo não encontrado.")
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/calendar")
+def get_calendar(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_calendar_items
+
+        return {
+            "status": "ok",
+            "items": get_calendar_items(start_date, end_date),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/campaigns")
+def get_campaigns(authorization: str | None = Header(default=None)):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_campaigns_dashboard
+
+        return {"status": "ok", **get_campaigns_dashboard()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/dashboard")
+def get_dashboard(
+    semana: Optional[str] = None,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_dashboard_instagram
+
+        return {
+            "status": "ok",
+            "instagram": get_dashboard_instagram(semana),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -543,12 +755,211 @@ class LeadInput(BaseModel):
     """Schema de entrada para captura de lead."""
     nome: str
     whatsapp: str
+    email: Optional[str] = None
     origem: str = "outro"
+    status: str = "novo"
     objetivo: Optional[str] = None
     valor_carta: Optional[float] = None
     prazo_uso: Optional[str] = None
     conhece_consorcio: Optional[str] = None
     observacoes: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_optional_email(cls, value: Optional[str]) -> Optional[str]:
+        if value is None or not value.strip():
+            return None
+        normalized = value.strip().lower()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
+
+
+class CrmLeadStatusInput(BaseModel):
+    status: str
+
+
+class CrmLeadUpdateInput(BaseModel):
+    nome: str
+    whatsapp: str
+    email: Optional[str] = None
+    origem: str
+    objetivo: Optional[str] = None
+    valor_carta: Optional[float] = None
+    prazo_uso: Optional[str] = None
+    conhece_consorcio: Optional[str] = None
+    observacoes: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def validate_optional_email(cls, value: Optional[str]) -> Optional[str]:
+        if value is None or not value.strip():
+            return None
+        normalized = value.strip().lower()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", normalized):
+            raise ValueError("Informe um e-mail válido.")
+        return normalized
+
+
+class CrmInteractionInput(BaseModel):
+    tipo: str
+    nota: str
+    proximo_passo: Optional[str] = None
+
+
+@app.get("/crm/leads")
+def get_crm_leads(authorization: str | None = Header(default=None)):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_leads_crm
+
+        return {"status": "ok", "leads": get_leads_crm()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/crm/leads/{lead_id}/interactions")
+def get_crm_lead_interactions(
+    lead_id: str,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import get_interacoes_lead
+
+        return {
+            "status": "ok",
+            "interacoes": get_interacoes_lead(lead_id),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/crm/leads/{lead_id}/status")
+def patch_crm_lead_status(
+    lead_id: str,
+    payload: CrmLeadStatusInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    permitidos = {
+        "novo", "qualificado", "em_negociacao", "fechado", "perdido"
+    }
+    if payload.status not in permitidos:
+        raise HTTPException(status_code=400, detail="Status de lead inválido.")
+    try:
+        from backend.integrations.supabase import atualizar_lead
+
+        lead = atualizar_lead(
+            lead_id,
+            {"status": payload.status, "ultimo_contato": datetime.now(timezone.utc).isoformat()},
+        )
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead não encontrado.")
+        return {"status": "ok", "lead": lead}
+    except HTTPException:
+        raise
+    except Exception as e:
+        if payload.email and "email" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail="O campo de e-mail ainda não está habilitado no banco.",
+            )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/crm/leads/{lead_id}")
+def patch_crm_lead(
+    lead_id: str,
+    payload: CrmLeadUpdateInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    origens = {"instagram_organico", "meta_ads", "indicacao", "direct", "outro"}
+    prazos = {"imediato", "1_ano", "2_anos", "sem_pressa"}
+    conhecimentos = {"sim", "nao", "parcialmente"}
+    if not payload.nome.strip() or not payload.whatsapp.strip():
+        raise HTTPException(status_code=400, detail="Nome e WhatsApp são obrigatórios.")
+    if payload.origem not in origens:
+        raise HTTPException(status_code=400, detail="Origem inválida.")
+    if payload.prazo_uso and payload.prazo_uso not in prazos:
+        raise HTTPException(status_code=400, detail="Prazo de uso inválido.")
+    if payload.conhece_consorcio and payload.conhece_consorcio not in conhecimentos:
+        raise HTTPException(status_code=400, detail="Conhecimento de consórcio inválido.")
+
+    whatsapp = re.sub(r"[\s\-()+]", "", payload.whatsapp)
+    try:
+        from backend.integrations.supabase import atualizar_lead, get_lead_por_whatsapp
+
+        existente = get_lead_por_whatsapp(whatsapp)
+        if existente and str(existente["id"]) != lead_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe outro lead com este WhatsApp.",
+            )
+        campos = {
+            "nome": payload.nome.strip(),
+            "whatsapp": whatsapp,
+            "origem": payload.origem,
+            "objetivo": payload.objetivo or None,
+            "valor_carta": payload.valor_carta,
+            "prazo_uso": payload.prazo_uso or None,
+            "conhece_consorcio": payload.conhece_consorcio or None,
+            "observacoes": payload.observacoes or None,
+        }
+        if payload.email:
+            campos["email"] = payload.email
+        lead = atualizar_lead(lead_id, campos)
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead não encontrado.")
+        return {"status": "ok", "lead": lead}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/crm/leads/{lead_id}")
+def delete_crm_lead(
+    lead_id: str,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    try:
+        from backend.integrations.supabase import excluir_lead
+
+        if not excluir_lead(lead_id):
+            raise HTTPException(status_code=404, detail="Lead não encontrado.")
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/crm/leads/{lead_id}/interactions")
+def post_crm_lead_interaction(
+    lead_id: str,
+    payload: CrmInteractionInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    if payload.tipo != "ligacao":
+        raise HTTPException(status_code=400, detail="Tipo de interação inválido.")
+    if not payload.nota.strip():
+        raise HTTPException(status_code=400, detail="A nota é obrigatória.")
+    try:
+        from backend.integrations.supabase import inserir_interacao
+
+        interacao = inserir_interacao(
+            lead_id,
+            payload.tipo,
+            payload.nota.strip(),
+            (payload.proximo_passo or "").strip(),
+        )
+        return {"status": "ok", "interacao": interacao}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/leads/capture")
@@ -589,12 +1000,18 @@ def capture_lead(lead: LeadInput, authorization: str | None = Header(default=Non
                 "acao": "nova interação registrada no histórico",
             }
 
+        status_permitidos = {
+            "novo", "qualificado", "em_negociacao", "fechado", "perdido"
+        }
+        if lead.status not in status_permitidos:
+            raise HTTPException(status_code=400, detail="Status de lead inválido.")
+
         # Montar dados do lead
         dados = {
             "nome": lead.nome.strip(),
             "whatsapp": whatsapp_normalizado,
             "origem": lead.origem,
-            "status": "novo",
+            "status": lead.status,
         }
 
         # Campos opcionais — só incluir se preenchidos
@@ -602,6 +1019,8 @@ def capture_lead(lead: LeadInput, authorization: str | None = Header(default=Non
             dados["objetivo"] = lead.objetivo
         if lead.valor_carta is not None:
             dados["valor_carta"] = lead.valor_carta
+        if lead.email:
+            dados["email"] = lead.email
         if lead.prazo_uso:
             dados["prazo_uso"] = lead.prazo_uso
         if lead.conhece_consorcio:
@@ -628,5 +1047,12 @@ def capture_lead(lead: LeadInput, authorization: str | None = Header(default=Non
             "proximo_passo": "Agente de Qualificação vai analisar este lead no próximo ciclo (13h)",
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
+        if lead.email and "email" in str(e).lower():
+            raise HTTPException(
+                status_code=503,
+                detail="O campo de e-mail ainda não está habilitado no banco.",
+            )
         raise HTTPException(status_code=500, detail=str(e))

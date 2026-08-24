@@ -33,12 +33,12 @@ export function RelevanceScore({
     return (
       <div className="w-24">
         <div className="mb-1 flex items-center justify-between">
-          <span className="text-[10px] font-semibold leading-3 text-[#0A0A0A]">
+          <span className="text-[10px] font-semibold leading-3 text-foreground">
             {score}
           </span>
-          <span className="text-[9px] leading-3 text-[#717182]">score</span>
+          <span className="text-[9px] leading-3 text-muted-foreground">score</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
           <div
             className={`h-full rounded-full ${relevanceClass[relevance]}`}
             style={{ width: `${score}%` }}
@@ -52,18 +52,18 @@ export function RelevanceScore({
     <div>
       <div className="flex items-end justify-between gap-3">
         <div>
-          <div className="text-3xl font-semibold leading-8 text-[#0A0A0A]">
+          <div className="text-3xl font-semibold leading-8 text-foreground">
             {score}
           </div>
-          <div className="mt-1 text-[10px] font-medium uppercase leading-3 tracking-wide text-[#717182]">
+          <div className="mt-1 text-[10px] font-medium uppercase leading-3 tracking-wide text-muted-foreground">
             relevância
           </div>
         </div>
-        <div className="pb-1 text-right text-[11px] font-medium leading-4 text-[#717182]">
+        <div className="pb-1 text-right text-[11px] font-medium leading-4 text-muted-foreground">
           {getRelevanceLabel(score)}
         </div>
       </div>
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
         <div
           className={`h-full rounded-full ${relevanceClass[relevance]}`}
           style={{ width: `${score}%` }}

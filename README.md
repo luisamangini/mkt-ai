@@ -240,7 +240,7 @@ Novo → Qualificado → Em negociação → Fechado → Perdido
 ### Railway
 - Deploy automático via push no GitHub
 - Procfile: `web: uvicorn backend.api:app --host 0.0.0.0 --port $PORT`
-- URL de produção: `https://web-production-b0aad.up.railway.app`
+- URL de produção: configure com o domínio ativo exibido pelo Railway
 - Endpoints disponíveis:
   - `GET /health`
   - `POST /run/research`
@@ -251,7 +251,7 @@ Novo → Qualificado → Em negociação → Fechado → Perdido
 ### n8n Cloud
 **Workflow 1 — Pipeline diário (7h):**
 ```
-Schedule (seg–sex 7h) → POST /run/research → POST /run/content/full → Gmail (roteiros)
+Schedule (seg–sex 7h) → POST /run/research → aguardar HTTP 200 → POST /run/content/full → Gmail (roteiros)
                                           ↓ erro
                                     Gmail (alerta)
 ```
@@ -366,7 +366,7 @@ git push origin main
 
 Para verificar se o deploy subiu:
 ```bash
-curl https://web-production-b0aad.up.railway.app/health
+curl https://SEU-DOMINIO-RAILWAY/health
 # Retorno esperado: {"status": "ok", "timestamp": "..."}
 ```
 
@@ -378,19 +378,19 @@ Os agentes são chamados pelo n8n via HTTP. Para acionar manualmente sem o n8n:
 
 ```bash
 # Agente de Pesquisa
-curl -X POST https://web-production-b0aad.up.railway.app/run/research \
+curl -X POST https://SEU-DOMINIO-RAILWAY/run/research \
   -H "Authorization: Bearer SEU_API_TOKEN"
 
 # Agente de Conteúdo
-curl -X POST https://web-production-b0aad.up.railway.app/run/content/full \
+curl -X POST https://SEU-DOMINIO-RAILWAY/run/content/full \
   -H "Authorization: Bearer SEU_API_TOKEN"
 
 # Agente de Qualificação
-curl -X POST https://web-production-b0aad.up.railway.app/run/qualification \
+curl -X POST https://SEU-DOMINIO-RAILWAY/run/qualification \
   -H "Authorization: Bearer SEU_API_TOKEN"
 
 # Agente de Análise
-curl -X POST https://web-production-b0aad.up.railway.app/run/analysis \
+curl -X POST https://SEU-DOMINIO-RAILWAY/run/analysis \
   -H "Authorization: Bearer SEU_API_TOKEN"
 ```
 

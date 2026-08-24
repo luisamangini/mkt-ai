@@ -5,25 +5,36 @@ export type LeadStage =
   | "fechado"
   | "perdido";
 
-export type LeadPriority = "alta" | "normal";
-
-export type LeadTemperature = "quente" | "morno" | "frio";
-
 export type ColumnAccent = "blue" | "purple" | "orange" | "green" | "red";
 
 export interface Lead {
   id: string;
   name: string;
   stage: LeadStage;
-  objective: string;
-  amount: string;
+  whatsapp: string;
+  email?: string;
   source: string;
-  date: string;
-  priority: LeadPriority;
-  progress?: number;
-  suggestion?: string;
-  phone?: string;
-  temperature?: LeadTemperature;
+  createdAt: string;
+  objective?: string;
+  amount?: number;
+  usageDeadline?: string;
+  knowsConsortium?: string;
+  notes?: string;
+  lastContact?: string;
+  lastActivity?: string;
+  inactiveDays: number;
+  qualified?: boolean;
+  needsFollowup?: boolean;
+  coldLead?: boolean;
+}
+
+export interface LeadInteraction {
+  id: string;
+  leadId: string;
+  type: string;
+  note: string;
+  createdAt: string;
+  nextStep?: string;
 }
 
 export interface KanbanColumnData {
@@ -32,4 +43,22 @@ export interface KanbanColumnData {
   count: number;
   leads: Lead[];
   accent: ColumnAccent;
+}
+
+export interface CreateLeadInput {
+  name: string;
+  whatsapp: string;
+  email?: string;
+  source: string;
+  stage: LeadStage;
+  objective?: string;
+  amount?: number;
+  usageDeadline?: string;
+  knowsConsortium?: string;
+  notes?: string;
+}
+
+export interface CreateInteractionInput {
+  note: string;
+  nextStep?: string;
 }

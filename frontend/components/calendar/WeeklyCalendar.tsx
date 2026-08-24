@@ -5,12 +5,14 @@ type WeeklyCalendarProps = {
   days: CalendarDay[];
   selectedItemId?: string;
   onSelectItem: (item: CalendarContentItem) => void;
+  onAdd: (date: string) => void;
 };
 
 export function WeeklyCalendar({
   days,
   selectedItemId,
   onSelectItem,
+  onAdd,
 }: WeeklyCalendarProps) {
   return (
     <div className="overflow-x-auto p-5">
@@ -21,6 +23,7 @@ export function WeeklyCalendar({
             day={day}
             selectedItemId={selectedItemId}
             onSelectItem={onSelectItem}
+            onAdd={onAdd}
           />
         ))}
       </div>
@@ -31,6 +34,7 @@ export function WeeklyCalendar({
             day={day}
             selectedItemId={selectedItemId}
             onSelectItem={onSelectItem}
+            onAdd={onAdd}
           />
         ))}
       </div>

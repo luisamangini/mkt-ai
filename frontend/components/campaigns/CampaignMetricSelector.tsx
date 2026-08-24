@@ -16,7 +16,7 @@ export function CampaignMetricSelector({
   onMetricChange,
 }: CampaignMetricSelectorProps) {
   return (
-    <div className="flex max-w-full overflow-x-auto rounded-md border border-black/10 bg-white p-0.5">
+    <div className="flex max-w-full overflow-x-auto rounded-md border border-border bg-card p-0.5">
       {metricOptions.map((option) => (
         <button
           key={option.value}
@@ -24,8 +24,8 @@ export function CampaignMetricSelector({
           onClick={() => onMetricChange(option.value)}
           className={`h-8 shrink-0 rounded px-3 text-[11px] font-medium transition-colors ${
             selectedMetric === option.value
-              ? "bg-gray-100 text-[#0A0A0A]"
-              : "text-[#717182] hover:text-[#0A0A0A]"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           {option.label}

@@ -24,17 +24,17 @@ export const pillarLabels: Record<CalendarPillar, string> = {
 };
 
 export const statusLabels: Record<CalendarStatus, string> = {
+  sem_status: "Sem status",
+  aprovado: "Aprovado",
   publicado: "Publicado",
-  aprovacao: "Aprovação",
-  agendado: "Agendado",
-  rascunho: "Rascunho",
+  descartado: "Descartado",
 };
 
 const statusText: Record<CalendarStatus, string> = {
+  sem_status: "text-muted-foreground",
+  aprovado: "text-green-600",
   publicado: "text-green-600",
-  aprovacao: "text-amber-700",
-  agendado: "text-[#2B7FFF]",
-  rascunho: "text-[#717182]",
+  descartado: "text-red-500",
 };
 
 export function CalendarContentCard({
@@ -48,12 +48,12 @@ export function CalendarContentCard({
       <button
         type="button"
         onClick={() => onClick(item)}
-        className={`flex w-full items-center gap-1.5 rounded-md border px-2 py-1 text-left hover:bg-gray-50 ${
-          selected ? "border-[#0A0A0A]" : "border-black/10"
+        className={`flex w-full items-center gap-1.5 rounded-md border px-2 py-1 text-left hover:bg-muted ${
+          selected ? "border-[#0A0A0A]" : "border-border"
         }`}
       >
         <span className={`h-2 w-2 shrink-0 rounded-full ${pillarClasses[item.pillar].split(" ")[1]}`} />
-        <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-[#0A0A0A]">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-medium text-foreground">
           {item.time ? `${item.time} · ` : ""}
           {item.title}
         </span>
@@ -68,20 +68,20 @@ export function CalendarContentCard({
     <button
       type="button"
       onClick={() => onClick(item)}
-      className={`w-full rounded-[10px] border bg-white p-3 text-left transition-colors hover:border-black/20 ${
-        selected ? "border-[#0A0A0A]" : "border-black/10"
+      className={`w-full rounded-[10px] border bg-card p-3 text-left transition-colors hover:border-black/20 ${
+        selected ? "border-[#0A0A0A]" : "border-border"
       }`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${pillarClasses[item.pillar]}`}>
           {pillarLabels[item.pillar]}
         </span>
-        <span className="text-[10px] text-[#717182]">{item.time}</span>
+        <span className="text-[10px] text-muted-foreground">{item.time ?? "Sem horário"}</span>
       </div>
-      <div className="text-[12px] font-semibold leading-4 text-[#0A0A0A]">
+      <div className="text-[12px] font-semibold leading-4 text-foreground">
         {item.title}
       </div>
-      <div className="mt-2 flex items-center justify-between text-[10px] text-[#717182]">
+      <div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
         <span>{item.format}</span>
         <span className={statusText[item.status]}>{statusLabels[item.status]}</span>
       </div>

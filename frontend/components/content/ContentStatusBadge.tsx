@@ -1,11 +1,11 @@
-import type { ContentStatus } from "@/types/content";
+﻿import type { ContentStatus } from "@/types/content";
 
 type ContentStatusBadgeProps = {
   status: ContentStatus;
 };
 
 const statusClass: Record<ContentStatus, string> = {
-  sem_status: "border-gray-200 bg-gray-50 text-[#717182]",
+  sem_status: "border-border bg-muted text-muted-foreground",
   aprovado: "border-[#05DF72]/20 bg-[#05DF72]/10 text-green-600",
   publicado: "border-[#51A2FF]/20 bg-[#51A2FF]/10 text-[#2B7FFF]",
   descartado: "border-red-200 bg-red-50 text-red-500",

@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   deleteContentItem,
   fetchContentItems,
+  scheduleContentItem,
+  unscheduleContentItem,
   updateContentItem,
   updateContentStatus,
 } from "@/services/content";
@@ -12,10 +14,13 @@ import type {
   ContentEditPayload,
   ContentFilter,
   ContentItem,
+  ContentPeriod,
+  ContentPillarFilter,
   ContentStatus,
 } from "@/types/content";
 
 import { ContentDetailsPanel } from "./ContentDetailsPanel";
+import { ContentFilters } from "./ContentFilters";
 import { ContentTable } from "./ContentTable";
 import { ContentToolbar } from "./ContentToolbar";
 
@@ -28,6 +33,8 @@ const filters: ContentFilter[] = [
 
 export function ContentPageContent() {
   const [activeFilter, setActiveFilter] = useState<ContentFilter>("todos");
+  const [period, setPeriod] = useState<ContentPeriod>("hoje");
+  const [pillar, setPillar] = useState<ContentPillarFilter>("todos");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,13 +72,30 @@ export function ContentPageContent() {
     };
   }, []);
 
+  const availablePillars = useMemo(
+    () => Array.from(new Set(items.map((item) => item.pillar))).sort(),
+    [items],
+  );
+
+  const periodAndPillarItems = useMemo(() => {
+    const now = new Date();
+    return items.filter((item) => {
+      const generatedAt = new Date(item.generatedAt);
+      if (Number.isNaN(generatedAt.getTime())) return false;
+      const inPeriod = period === "hoje"
+        ? generatedAt.getFullYear() === now.getFullYear() && generatedAt.getMonth() === now.getMonth() && generatedAt.getDate() === now.getDate()
+        : generatedAt.getTime() >= now.getTime() - (period === "ultimos_7_dias" ? 7 : 30) * 24 * 60 * 60 * 1000;
+      return inPeriod && (pillar === "todos" || item.pillar === pillar);
+    });
+  }, [items, period, pillar]);
+
   const counts = useMemo(() => {
     return filters.reduce<Record<ContentFilter, number>>(
       (accumulator, filter) => {
         accumulator[filter] =
           filter === "todos"
-            ? items.length
-            : items.filter((item) => item.status === filter).length;
+            ? periodAndPillarItems.length
+            : periodAndPillarItems.filter((item) => item.status === filter).length;
         return accumulator;
       },
       {
@@ -81,15 +105,15 @@ export function ContentPageContent() {
         descartado: 0,
       },
     );
-  }, [items]);
+  }, [periodAndPillarItems]);
 
   const filteredItems = useMemo(() => {
     if (activeFilter === "todos") {
-      return items;
+      return periodAndPillarItems;
     }
 
-    return items.filter((item) => item.status === activeFilter);
-  }, [activeFilter, items]);
+    return periodAndPillarItems.filter((item) => item.status === activeFilter);
+  }, [activeFilter, periodAndPillarItems]);
 
   function replaceItem(updated: ContentItem) {
     setItems((current) =>
@@ -123,8 +147,25 @@ export function ContentPageContent() {
     setSelectedContent(null);
   }
 
+  async function handleSchedule(date: string, time?: string) {
+    if (!selectedContent) return;
+    replaceItem(await scheduleContentItem(selectedContent, date, time));
+  }
+
+  async function handleUnschedule() {
+    if (!selectedContent) return;
+    replaceItem(await unscheduleContentItem(selectedContent));
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
+      <ContentFilters
+        period={period}
+        pillar={pillar}
+        pillars={availablePillars}
+        onPeriodChange={(nextPeriod) => { setPeriod(nextPeriod); setSelectedContent(null); }}
+        onPillarChange={(nextPillar) => { setPillar(nextPillar); setSelectedContent(null); }}
+      />
       <section className="min-w-0 flex-1 overflow-y-auto overscroll-contain">
         <ContentToolbar
           activeFilter={activeFilter}
@@ -135,8 +176,12 @@ export function ContentPageContent() {
           }}
         />
 
+        <div className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">
+          {filteredItems.length} resultados
+        </div>
+
         {loading ? (
-          <div className="p-5 text-[11px] text-[#717182]">
+          <div className="p-5 text-[11px] text-muted-foreground">
             Carregando conteúdos...
           </div>
         ) : error ? (
@@ -150,7 +195,7 @@ export function ContentPageContent() {
             onSelectItem={setSelectedContent}
           />
         ) : (
-          <div className="p-5 text-[11px] text-[#717182]">
+          <div className="p-5 text-[11px] text-muted-foreground">
             Nenhum conteúdo encontrado.
           </div>
         )}
@@ -163,6 +208,8 @@ export function ContentPageContent() {
           onStatusChange={handleStatusChange}
           onSave={handleSave}
           onDelete={handleDelete}
+          onSchedule={handleSchedule}
+          onUnschedule={handleUnschedule}
         />
       ) : null}
     </div>

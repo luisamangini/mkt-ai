@@ -1,301 +1,132 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type {
-  CalendarContentItem,
-  CalendarDay,
-  CalendarView,
-} from "@/types/calendar";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { fetchContentItems } from "@/services/content";
+import { fetchCalendarItems, scheduleContent, unscheduleContent } from "@/services/calendar";
+import type { ContentItem } from "@/types/content";
+import type { CalendarContentItem, CalendarDay, CalendarView } from "@/types/calendar";
 import { CalendarDetailsPanel } from "./CalendarDetailsPanel";
 import { CalendarLegend } from "./CalendarLegend";
 import { CalendarToolbar } from "./CalendarToolbar";
 import { MonthlyCalendar } from "./MonthlyCalendar";
 import { WeeklyCalendar } from "./WeeklyCalendar";
 
-const MOCK_TODAY = "2025-07-02";
+const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const toDateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+const addDays = (date: Date, days: number) => { const next = new Date(date); next.setDate(next.getDate() + days); return next; };
+const addMonths = (date: Date, months: number) => { const next = new Date(date); next.setMonth(next.getMonth() + months); return next; };
+const getMonday = (date: Date) => addDays(date, date.getDay() === 0 ? -6 : 1 - date.getDay());
 
-const MOCK_CONTENT_ITEMS: CalendarContentItem[] = [
-  {
-    id: "CAL-001",
-    title: "Mito do consorcio #3",
-    date: "2025-06-30",
-    time: "18:00",
-    format: "carrossel",
-    pillar: "mitos",
-    status: "publicado",
-    suggestedBestTime: "18:00",
-    sourceContentId: "C-045",
-    description: "Carrossel educativo para quebrar objecoes comuns sobre consorcio.",
-  },
-  {
-    id: "CAL-002",
-    title: "Depoimento Carlos - Imovel",
-    date: "2025-07-01",
-    time: "12:00",
-    format: "reel",
-    pillar: "prova_social",
-    status: "publicado",
-    suggestedBestTime: "12:00",
-    sourceContentId: "C-046",
-    description: "Reel de prova social com foco no caso de compra de imovel.",
-  },
-  {
-    id: "CAL-003",
-    title: "Stories Q&A semana",
-    date: "2025-07-01",
-    time: "20:00",
-    format: "stories",
-    pillar: "atualidades",
-    status: "publicado",
-    suggestedBestTime: "20:00",
-    sourceContentId: "C-044",
-    description: "Sequencia de stories para responder duvidas rapidas da audiencia.",
-  },
-  {
-    id: "CAL-004",
-    title: "Selic e consorcio - oportunidade",
-    date: "2025-07-02",
-    time: "18:00",
-    format: "reel",
-    pillar: "atualidades",
-    status: "aprovacao",
-    suggestedBestTime: "18:00",
-    sourceContentId: "C-047",
-    description: "Reel conectando a queda da Selic com decisoes de compra planejada.",
-  },
-  {
-    id: "CAL-005",
-    title: "Por que consorcio > financiamento",
-    date: "2025-07-02",
-    time: "19:00",
-    format: "carrossel",
-    pillar: "educacao_financeira",
-    status: "rascunho",
-    suggestedBestTime: "19:00",
-    sourceContentId: "C-043",
-    description: "Comparativo simples entre financiamento e consorcio para leads em consideracao.",
-  },
-  {
-    id: "CAL-006",
-    title: "Lance embutido explicado",
-    date: "2025-07-03",
-    time: "18:00",
-    format: "reel",
-    pillar: "educacao_financeira",
-    status: "agendado",
-    suggestedBestTime: "18:00",
-    sourceContentId: "C-042",
-    description: "Roteiro curto para explicar lance embutido sem prometer contemplacao.",
-  },
-  {
-    id: "CAL-007",
-    title: "CTA - vagas abertas julho",
-    date: "2025-07-04",
-    time: "20:00",
-    format: "stories",
-    pillar: "conversao",
-    status: "agendado",
-    suggestedBestTime: "20:00",
-    description: "Stories com chamada direta para simulacao e conversa no direct.",
-  },
-  {
-    id: "CAL-008",
-    title: "Simulacao imovel ao vivo",
-    date: "2025-07-04",
-    time: "18:00",
-    format: "reel",
-    pillar: "educacao_financeira",
-    status: "agendado",
-    suggestedBestTime: "18:00",
-    description: "Reel com simulacao didatica de carta de credito para imovel.",
-  },
-  {
-    id: "CAL-009",
-    title: "Motivacional da semana",
-    date: "2025-07-06",
-    time: "09:00",
-    format: "stories",
-    pillar: "prova_social",
-    status: "agendado",
-    suggestedBestTime: "09:00",
-    description: "Stories leve para reforcar planejamento financeiro no inicio da semana.",
-  },
-  {
-    id: "CAL-010",
-    title: "Financiamento caro: o que observar",
-    date: "2025-07-08",
-    time: "18:00",
-    format: "reel",
-    pillar: "educacao_financeira",
-    status: "agendado",
-    suggestedBestTime: "18:00",
-    sourceContentId: "C-047",
-    description: "Conteudo de meio de funil sobre custo total e planejamento.",
-  },
-  {
-    id: "CAL-011",
-    title: "Cliente contemplado em junho",
-    date: "2025-07-10",
-    time: "12:00",
-    format: "reel",
-    pillar: "prova_social",
-    status: "aprovacao",
-    suggestedBestTime: "12:00",
-    description: "Prova social para reduzir inseguranca de novos leads.",
-  },
-  {
-    id: "CAL-012",
-    title: "Quiz: consorcio tem juros?",
-    date: "2025-07-15",
-    time: "20:00",
-    format: "stories",
-    pillar: "mitos",
-    status: "rascunho",
-    suggestedBestTime: "20:00",
-    description: "Sequencia interativa para corrigir percepcao sobre taxa de administracao.",
-  },
-  {
-    id: "CAL-013",
-    title: "Checklist antes de comprar seu carro",
-    date: "2025-07-22",
-    time: "18:00",
-    format: "carrossel",
-    pillar: "conversao",
-    status: "agendado",
-    suggestedBestTime: "18:00",
-    description: "Carrossel de conversao com criterios para simulacao de veiculo.",
-  },
-];
-
-const dayLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
-
-function toDate(date: string) {
-  return new Date(`${date}T00:00:00`);
+function period(date: Date, view: CalendarView) {
+  const start = view === "weekly" ? getMonday(date) : getMonday(new Date(date.getFullYear(), date.getMonth(), 1));
+  const end = addDays(start, view === "weekly" ? 6 : 41);
+  return { start: toDateKey(start), end: toDateKey(end) };
 }
 
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(date: Date, days: number) {
-  const next = new Date(date);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function addMonths(date: Date, months: number) {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-}
-
-function getMonday(date: Date) {
-  const day = date.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  return addDays(date, diff);
-}
-
-function getItemsByDate(items: CalendarContentItem[]) {
-  return items.reduce<Record<string, CalendarContentItem[]>>((acc, item) => {
-    acc[item.date] = [...(acc[item.date] ?? []), item];
-    return acc;
+function buildDays(date: Date, view: CalendarView, items: CalendarContentItem[]): CalendarDay[] {
+  const start = view === "weekly" ? getMonday(date) : getMonday(new Date(date.getFullYear(), date.getMonth(), 1));
+  const count = view === "weekly" ? 7 : 42;
+  const today = toDateKey(new Date());
+  const byDate = items.reduce<Record<string, CalendarContentItem[]>>((result, item) => {
+    result[item.date] = [...(result[item.date] ?? []), item]; return result;
   }, {});
-}
-
-function buildWeekDays(date: Date, items: CalendarContentItem[]): CalendarDay[] {
-  const start = getMonday(date);
-  const itemsByDate = getItemsByDate(items);
-
-  return Array.from({ length: 7 }, (_, index) => {
-    const day = addDays(start, index);
-    const dateKey = toDateKey(day);
-
-    return {
-      date: dateKey,
-      dayLabel: dayLabels[day.getDay()],
-      isToday: dateKey === MOCK_TODAY,
-      isCurrentMonth: true,
-      items: itemsByDate[dateKey] ?? [],
-    };
-  });
-}
-
-function buildMonthDays(date: Date, items: CalendarContentItem[]): CalendarDay[] {
-  const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
-  const firstGridDay = getMonday(monthStart);
-  const itemsByDate = getItemsByDate(items);
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const day = addDays(firstGridDay, index);
-    const dateKey = toDateKey(day);
-
-    return {
-      date: dateKey,
-      dayLabel: dayLabels[day.getDay()],
-      isToday: dateKey === MOCK_TODAY,
-      isCurrentMonth: day.getMonth() === date.getMonth(),
-      items: itemsByDate[dateKey] ?? [],
-    };
+  return Array.from({ length: count }, (_, index) => {
+    const day = addDays(start, index); const key = toDateKey(day);
+    return { date: key, dayLabel: dayLabels[day.getDay()], isToday: key === today, isCurrentMonth: view === "weekly" || day.getMonth() === date.getMonth(), items: byDate[key] ?? [] };
   });
 }
 
 export function CalendarPageContent() {
+  const router = useRouter();
   const [view, setView] = useState<CalendarView>("weekly");
-  const [currentDate, setCurrentDate] = useState(() => toDate(MOCK_TODAY));
+  const [currentDate, setCurrentDate] = useState(() => new Date());
+  const [items, setItems] = useState<CalendarContentItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<CalendarContentItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [addDate, setAddDate] = useState<string | null>(null);
+  const [available, setAvailable] = useState<ContentItem[]>([]);
+  const [selectedContentId, setSelectedContentId] = useState("");
+  const [addTime, setAddTime] = useState("");
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalError, setModalError] = useState("");
+  const visiblePeriod = useMemo(() => period(currentDate, view), [currentDate, view]);
+  const days = useMemo(() => buildDays(currentDate, view, items), [currentDate, items, view]);
 
-  const days = useMemo(
-    () =>
-      view === "weekly"
-        ? buildWeekDays(currentDate, MOCK_CONTENT_ITEMS)
-        : buildMonthDays(currentDate, MOCK_CONTENT_ITEMS),
-    [currentDate, view],
-  );
+  useEffect(() => {
+    let active = true; setLoading(true); setError("");
+    fetchCalendarItems(visiblePeriod.start, visiblePeriod.end)
+      .then((result) => { if (active) setItems(result); })
+      .catch((cause) => { if (active) { setItems([]); setError(cause instanceof Error ? cause.message : "Não foi possível carregar o calendário."); } })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [visiblePeriod.end, visiblePeriod.start]);
 
-  function handlePrevious() {
-    setCurrentDate((date) =>
-      view === "weekly" ? addDays(date, -7) : addMonths(date, -1),
-    );
+  async function openAdd(date: string) {
+    setAddDate(date); setSelectedContentId(""); setAddTime(""); setModalError(""); setModalLoading(true);
+    try {
+      const [contents, scheduled] = await Promise.all([fetchContentItems(), fetchCalendarItems("2000-01-01", "2100-12-31")]);
+      const scheduledIds = new Set(scheduled.map((item) => item.id));
+      setAvailable(contents.filter((item) => !scheduledIds.has(`${item.executionId}:${item.contentIndex}`)));
+    } catch (cause) { setModalError(cause instanceof Error ? cause.message : "Não foi possível carregar os conteúdos."); }
+    finally { setModalLoading(false); }
   }
 
-  function handleNext() {
-    setCurrentDate((date) =>
-      view === "weekly" ? addDays(date, 7) : addMonths(date, 1),
-    );
+  async function addSchedule() {
+    const content = available.find((item) => item.id === selectedContentId);
+    if (!content || !addDate) return;
+    setModalLoading(true); setModalError("");
+    try {
+      const scheduled = await scheduleContent(content, addDate, addTime || undefined);
+      setItems((current) => [...current.filter((item) => item.id !== scheduled.id), scheduled]);
+      setAddDate(null);
+    } catch (cause) { setModalError(cause instanceof Error ? cause.message : "Não foi possível agendar o conteúdo."); }
+    finally { setModalLoading(false); }
+  }
+
+  async function editSchedule(date: string, time?: string) {
+    if (!selectedItem) return;
+    const updated = await scheduleContent(selectedItem, date, time);
+    setItems((current) => [...current.filter((item) => item.id !== updated.id), updated]);
+    setSelectedItem(updated);
+  }
+
+  async function removeSchedule() {
+    if (!selectedItem) return;
+    await unscheduleContent(selectedItem);
+    setItems((current) => current.filter((item) => item.id !== selectedItem.id));
+    setSelectedItem(null);
   }
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden rounded-[10px] border border-black/10 bg-white">
-      <section className="min-w-0 flex-1">
-        <CalendarToolbar
-          view={view}
-          currentDate={currentDate}
-          onViewChange={setView}
-          onPrevious={handlePrevious}
-          onNext={handleNext}
-        />
+    <div className="flex min-h-0 flex-1 overflow-hidden rounded-[10px] border border-border bg-card">
+      <section className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <CalendarToolbar view={view} currentDate={currentDate} onViewChange={setView} onPrevious={() => setCurrentDate((date) => view === "weekly" ? addDays(date, -7) : addMonths(date, -1))} onNext={() => setCurrentDate((date) => view === "weekly" ? addDays(date, 7) : addMonths(date, 1))} />
         <CalendarLegend />
-        {view === "weekly" ? (
-          <WeeklyCalendar
-            days={days}
-            selectedItemId={selectedItem?.id}
-            onSelectItem={setSelectedItem}
-          />
-        ) : (
-          <MonthlyCalendar
-            days={days}
-            selectedItemId={selectedItem?.id}
-            onSelectItem={setSelectedItem}
-          />
-        )}
+        {error ? <p className="px-5 py-3 text-xs text-red-500">{error}</p> : null}
+        {loading ? <p className="px-5 py-3 text-xs text-muted-foreground">Carregando calendário...</p> : null}
+        {!loading && !error && items.length === 0 ? <p className="px-5 py-3 text-xs text-muted-foreground">Nenhum conteúdo agendado neste período.</p> : null}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {view === "weekly" ? <WeeklyCalendar days={days} selectedItemId={selectedItem?.id} onSelectItem={setSelectedItem} onAdd={openAdd} /> : <MonthlyCalendar days={days} selectedItemId={selectedItem?.id} onSelectItem={setSelectedItem} onAdd={openAdd} />}
+        </div>
       </section>
+      {selectedItem ? <CalendarDetailsPanel item={selectedItem} onClose={() => setSelectedItem(null)} onSchedule={editSchedule} onUnschedule={removeSchedule} onOpenContent={() => router.push("/content")} /> : null}
 
-      {selectedItem ? (
-        <CalendarDetailsPanel item={selectedItem} onClose={() => setSelectedItem(null)} />
-      ) : null}
+      {addDate ? <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4" role="dialog" aria-modal="true">
+        <div className="w-full max-w-md rounded-[10px] bg-card p-5 shadow-xl">
+          <h2 className="text-sm font-semibold text-foreground">Adicionar ao calendário</h2>
+          <p className="mt-1 text-[11px] text-muted-foreground">Data: {new Date(`${addDate}T00:00:00`).toLocaleDateString("pt-BR")}</p>
+          {modalLoading ? <p className="mt-4 text-xs text-muted-foreground">Carregando...</p> : null}
+          {!modalLoading && available.length === 0 && !modalError ? <p className="mt-4 text-xs text-muted-foreground">Nenhum conteúdo não agendado disponível.</p> : null}
+          <div className="mt-4 max-h-64 space-y-2 overflow-y-auto">
+            {available.map((content) => <button key={content.id} type="button" onClick={() => setSelectedContentId(content.id)} className={`w-full rounded-lg border p-3 text-left ${selectedContentId === content.id ? "border-[#0A0A0A]" : "border-border"}`}><div className="text-xs font-medium text-foreground">{content.title}</div><div className="mt-1 text-[10px] text-muted-foreground">{content.format} · {content.pillar} · {content.status}</div></button>)}
+          </div>
+          <label className="mt-4 block text-[11px] text-muted-foreground">Horário (opcional)<input type="time" value={addTime} onChange={(event) => setAddTime(event.target.value)} className="mt-1 h-9 w-full rounded-md border border-border px-3 text-foreground" /></label>
+          {modalError ? <p className="mt-3 text-xs text-red-500">{modalError}</p> : null}
+          <div className="mt-5 flex justify-end gap-2"><button type="button" onClick={() => setAddDate(null)} disabled={modalLoading} className="h-9 rounded-md border border-border px-4 text-xs">Cancelar</button><button type="button" onClick={addSchedule} disabled={modalLoading || !selectedContentId} className="h-9 rounded-md bg-[#030213] px-4 text-xs text-white disabled:opacity-50">Agendar</button></div>
+        </div>
+      </div> : null}
     </div>
   );
 }

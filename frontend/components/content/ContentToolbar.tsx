@@ -21,7 +21,7 @@ export function ContentToolbar({
   onFilterChange,
 }: ContentToolbarProps) {
   return (
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 px-5 py-4">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
       <div className="flex flex-wrap items-center gap-1">
         {filters.map((filter) => (
           <button
@@ -30,12 +30,12 @@ export function ContentToolbar({
             onClick={() => onFilterChange(filter.value)}
             className={`h-8 rounded-md px-3 text-[11px] font-medium transition-colors ${
               activeFilter === filter.value
-                ? "bg-gray-100 text-[#0A0A0A]"
-                : "text-[#717182] hover:bg-gray-50 hover:text-[#0A0A0A]"
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             {filter.label}
-            <span className="ml-1.5 text-[10px] text-[#717182]">
+            <span className="ml-1.5 text-[10px] text-muted-foreground">
               {counts[filter.value]}
             </span>
           </button>

@@ -1,22 +1,57 @@
-export type CampaignPeriod =
-  | "7d"
-  | "30d"
-  | "current_month"
-  | "previous_month";
-
-export type CampaignTrend = "up" | "down";
-
-export type CampaignStatus = "ativa" | "pausada" | "encerrada";
-
 export type CampaignChartMetric = "investment_leads" | "cpl" | "ctr";
+
+export interface PersistedCampaign {
+  name: string;
+  investment: number;
+  impressions: number;
+  clicks: number;
+  ctr: number;
+  cpm: number;
+  leads: number;
+  cpl: number;
+}
+
+export interface CampaignSnapshot {
+  week: string;
+  generatedAt: string;
+  requestedPeriod: string;
+  usedPeriod: string;
+  warning?: string;
+  investment: number;
+  impressions: number;
+  reach: number;
+  clicks: number;
+  ctr: number;
+  cpm: number;
+  cpl: number;
+  metaLeads: number;
+  frequency: number;
+  hookRate: number;
+  newLeads: number;
+  qualifiedLeads: number;
+  negotiatingLeads: number;
+  closedLeads: number;
+  lostLeads: number;
+  qualificationRate: number;
+  closingRate: number;
+  qualifiedLeadCost: number;
+  closedLeadCost: number;
+  campaigns: PersistedCampaign[];
+}
+
+export interface CampaignsData {
+  current: CampaignSnapshot | null;
+  previous: CampaignSnapshot | null;
+  history: CampaignSnapshot[];
+  campaigns: PersistedCampaign[];
+}
 
 export interface CampaignMetric {
   label: string;
   value: string;
   variation: string;
   variationLabel: string;
-  trend: CampaignTrend;
-  isPositive: boolean;
+  tone: "positive" | "negative" | "neutral";
 }
 
 export interface CampaignPerformancePoint {
@@ -45,18 +80,8 @@ export interface FunnelStage {
   name: string;
   quantity: number;
   percentage: number;
-  previousConversion?: string;
   color: "blue" | "purple" | "orange" | "green" | "red";
   separated?: boolean;
 }
 
-export interface CampaignPerformanceRow {
-  campaign: string;
-  status: CampaignStatus;
-  investment: string;
-  impressions: string;
-  clicks: string;
-  ctr: string;
-  leads: number;
-  cpl: string;
-}
+export type CampaignPerformanceRow = PersistedCampaign;

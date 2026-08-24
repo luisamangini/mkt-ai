@@ -1,48 +1,6 @@
-"use client";
+type Props = { requestedPeriod?: string; usedPeriod?: string; generatedAt?: string };
 
-import type { CampaignPeriod } from "@/types/campaigns";
-
-type CampaignPeriodFilterProps = {
-  selectedPeriod: CampaignPeriod;
-  onPeriodChange: (period: CampaignPeriod) => void;
-};
-
-const periodOptions: Array<{ label: string; value: CampaignPeriod }> = [
-  { label: "7 dias", value: "7d" },
-  { label: "30 dias", value: "30d" },
-  { label: "Este mês", value: "current_month" },
-  { label: "Mês anterior", value: "previous_month" },
-];
-
-export function CampaignPeriodFilter({
-  selectedPeriod,
-  onPeriodChange,
-}: CampaignPeriodFilterProps) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 className="text-base font-semibold text-[#0A0A0A]">Campanhas</h1>
-        <p className="mt-1 text-[11px] text-[#717182]">
-          Acompanhe investimento, eficiência e conversão das campanhas
-        </p>
-      </div>
-
-      <div className="flex rounded-md border border-black/10 bg-white p-0.5">
-        {periodOptions.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onPeriodChange(option.value)}
-            className={`h-8 rounded px-3 text-[11px] font-medium transition-colors ${
-              selectedPeriod === option.value
-                ? "bg-gray-100 text-[#0A0A0A]"
-                : "text-[#717182] hover:text-[#0A0A0A]"
-            }`}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+export function CampaignPeriodFilter({ requestedPeriod, usedPeriod, generatedAt }: Props) {
+  const generated = generatedAt ? new Date(generatedAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : null;
+  return <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-base font-semibold text-foreground">Campanhas</h1><p className="mt-1 text-[11px] text-muted-foreground">Acompanhe investimento, eficiência e conversão dos snapshots persistidos</p></div>{usedPeriod ? <div className="flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><span className="rounded-md border border-border bg-card px-2 py-1">Período utilizado: {usedPeriod}</span>{requestedPeriod && requestedPeriod !== usedPeriod ? <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">Solicitado: {requestedPeriod}</span> : null}{generated ? <span>Atualizado em {generated}</span> : null}</div> : null}</div>;
 }

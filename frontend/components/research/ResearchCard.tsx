@@ -33,8 +33,8 @@ export function ResearchCard({
     <button
       type="button"
       onClick={() => onSelect(insight)}
-      className={`w-full cursor-pointer rounded-[10px] border bg-white p-4 text-left transition-colors hover:border-black/20 ${
-        selected ? "border-[#0A0A0A]" : "border-black/10"
+      className={`w-full cursor-pointer rounded-[10px] border bg-card p-4 text-left transition-colors hover:border-black/20 ${
+        selected ? "border-[#0A0A0A]" : "border-border"
       }`}
     >
       <div className="flex items-start justify-between gap-4">
@@ -45,19 +45,19 @@ export function ResearchCard({
             >
               {categoryLabel[insight.category]}
             </span>
-            <span className="text-[10px] leading-4 text-[#717182]">
+            <span className="text-[10px] leading-4 text-muted-foreground">
               {insight.sourceName}
             </span>
-            <span className="text-[10px] leading-4 text-[#717182]">·</span>
-            <span className="text-[10px] leading-4 text-[#717182]">
+            <span className="text-[10px] leading-4 text-muted-foreground">·</span>
+            <span className="text-[10px] leading-4 text-muted-foreground">
               {insight.publishedAgo}
             </span>
           </div>
 
-          <h2 className="text-sm font-semibold leading-5 text-[#0A0A0A]">
+          <h2 className="text-sm font-semibold leading-5 text-foreground">
             {insight.title}
           </h2>
-          <p className="mt-2 text-[11px] leading-5 text-[#717182]">
+          <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
             {insight.summary}
           </p>
 
@@ -65,7 +65,7 @@ export function ResearchCard({
             {insight.tags.map((tag) => (
               <span
                 key={tag}
-                className="rounded bg-gray-50 px-2 py-0.5 text-[10px] leading-4 text-[#717182]"
+                className="rounded bg-muted px-2 py-0.5 text-[10px] leading-4 text-muted-foreground"
               >
                 {tag}
               </span>

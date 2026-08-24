@@ -1,21 +1,18 @@
-export type SettingsTab = "users" | "permissions";
+export type SettingsTab = "users" | "account";
 
-export type UserRole = "admin" | "editor" | "viewer";
+export type CurrentAccount = {
+  email: string;
+  name: string;
+};
 
-export type UserStatus = "active" | "inactive";
-
-export interface SettingsUser {
+export type SettingsUser = {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
-  lastAccess: string;
-  status: UserStatus;
-}
+  createdAt: string;
+  lastSignInAt: string | null;
+};
 
-export interface PermissionRow {
-  feature: string;
-  admin: boolean;
-  editor: boolean;
-  viewer: boolean;
-}
+export type InviteUserInput = {
+  email: string;
+};

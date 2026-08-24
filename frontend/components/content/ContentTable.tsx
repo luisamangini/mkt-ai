@@ -17,12 +17,13 @@ export function ContentTable({
     <div className="min-w-0 overflow-x-auto">
       <table className="w-full min-w-[980px] border-collapse">
         <thead>
-          <tr className="border-b border-black/10 text-left text-[9px] font-semibold uppercase leading-[13.5px] tracking-[0.1em] text-[#717182]/70">
+          <tr className="border-b border-border text-left text-[9px] font-semibold uppercase leading-[13.5px] tracking-[0.1em] text-muted-foreground/70">
             <th className="px-5 py-3">Título</th>
             <th className="px-3 py-3">Formato</th>
             <th className="px-3 py-3">Pilar</th>
             <th className="px-3 py-3">Status</th>
             <th className="px-3 py-3">Criado</th>
+            <th className="px-3 py-3">Publicação</th>
           </tr>
         </thead>
         <tbody>

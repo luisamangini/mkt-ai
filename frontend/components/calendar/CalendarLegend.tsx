@@ -1,4 +1,4 @@
-import { pillarClasses, pillarLabels, statusLabels } from "./CalendarContentCard";
+﻿import { pillarClasses, pillarLabels, statusLabels } from "./CalendarContentCard";
 import type { CalendarPillar, CalendarStatus } from "@/types/calendar";
 
 const pillars: CalendarPillar[] = [
@@ -9,18 +9,18 @@ const pillars: CalendarPillar[] = [
   "conversao",
 ];
 
-const statuses: CalendarStatus[] = ["publicado", "aprovacao", "agendado", "rascunho"];
+const statuses: CalendarStatus[] = ["sem_status", "aprovado", "publicado", "descartado"];
 
 const statusDot: Record<CalendarStatus, string> = {
+  sem_status: "bg-gray-400",
+  aprovado: "bg-green-500",
   publicado: "bg-green-500",
-  aprovacao: "bg-amber-400",
-  agendado: "bg-[#51A2FF]",
-  rascunho: "bg-gray-400",
+  descartado: "bg-red-500",
 };
 
 export function CalendarLegend() {
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-black/10 px-5 py-3 text-[10px] text-[#717182]">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-border px-5 py-3 text-[10px] text-muted-foreground">
       <div className="flex flex-wrap items-center gap-2">
         {pillars.map((pillar) => (
           <span key={pillar} className="flex items-center gap-1.5">

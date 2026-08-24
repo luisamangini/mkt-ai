@@ -32,15 +32,49 @@ def _build_search_queries() -> list[str]:
     ano_mes = datetime.now(timezone.utc).strftime("%Y-%m")
 
     return [
-        f"consórcio imóvel novidade notícia {ano_mes}",
-        f"taxa Selic decisão Copom impacto {ano_mes}",
-        f"preço carro aumento queda mercado Brasil {ano_mes}",
-        f"consórcio contemplação lance recorde {ano_mes}",
-        f"financiamento imóvel juros banco Brasil {ano_mes}",
+        f"consórcio Brasil regulamentação Banco Central novidade {ano_mes}",
+        f"comportamento consumidor planejamento compra pesquisa Brasil {ano_mes}",
+        f"educação financeira direitos consumidor golpes notícia {ano_mes}",
+        f"mercado imobiliário tendências consumo Brasil {ano_mes}",
+        f"mercado automotivo tendências consumo Brasil {ano_mes}",
     ]
 
 
-def _build_system_prompt() -> str:
+def _formatar_historico_tematico(
+    pesquisas: list[dict],
+) -> str:
+    itens: list[str] = []
+
+    for pesquisa in pesquisas:
+        data = str(pesquisa.get("data", "data desconhecida"))
+        temas = pesquisa.get("temas")
+        if not isinstance(temas, list):
+            continue
+
+        for tema in temas:
+            if not isinstance(tema, dict):
+                continue
+            titulo = str(tema.get("titulo", "")).strip()
+            if not titulo:
+                continue
+            resumo = str(tema.get("resumo", "")).strip()[:350]
+            pilar = str(tema.get("pilar_sugerido", "")).strip()
+            angulo = str(tema.get("angulo_sugerido", "")).strip()[:220]
+            itens.append(
+                f"- Data: {data}\n"
+                f"  Título: {titulo}\n"
+                f"  Resumo/tese: {resumo}\n"
+                f"  Pilar: {pilar}\n"
+                f"  Oportunidade usada: {angulo}"
+            )
+
+    if not itens:
+        return "Nenhum tema persistido nos últimos 90 dias."
+
+    return "\n".join(itens)
+
+
+def _build_system_prompt(historico_tematico: str) -> str:
     pilares = _load_knowledge(
         "content/pillars_and_calendar.md"
     )
@@ -65,14 +99,20 @@ Personas:
 Guardrails:
 {guardrails[:800]}
 
+Memória temática — temas usados nos últimos 90 dias:
+{historico_tematico}
+
 Regras:
-1. Selecione de 2 a 3 temas relevantes.
-2. Priorize temas ligados a consórcio, Selic, mercado imobiliário, mercado automotivo e planejamento financeiro.
-3. Escreva em linguagem simples.
-4. Use fatos concretos, números, datas e fontes reais.
-5. Evite matérias antigas, genéricas ou sem novidade.
-6. Nunca prometa contemplação, retorno financeiro ou resultado garantido.
-7. Responda APENAS com JSON válido.
+1. Selecione no máximo 3 temas relevantes. Retorne somente 1 ou 2 quando não houver 3 opções novas, atuais e bem sustentadas. Se não houver nenhuma opção válida, retorne "temas": []. Nunca invente um tema para completar quantidade.
+2. Rejeite qualquer candidato substancialmente semelhante à memória temática, mesmo que título, formato ou ângulo superficial tenham mudado. Compare assunto central, tese principal, fato/notícia principal, pergunta central e oportunidade de conteúdo.
+3. Um tema recente só pode voltar quando houver fato novo material: nova decisão oficial, lei ou regulação, dado oficial, recorde, mudança relevante de mercado ou evento que altere substancialmente a conclusão anterior. Nesse caso, explicite no resumo qual é o fato novo, sua data e por que ele justifica revisitar o assunto.
+4. Os temas da mesma execução também devem ser semanticamente distintos entre si. Não selecione três variações do mesmo eixo.
+5. Busque diversidade entre Atualidades, Economia, Mercado imobiliário, Mercado automotivo, Educação financeira, Mitos e verdades, Tendências de consumo, Comportamento do consumidor, Dados do setor de consórcios, Regulação/legislação, Comparações financeiras e Prova social/cases. Quando houver material confiável, cubra pelo menos 2 eixos diferentes.
+6. Escreva em linguagem simples.
+7. Use fatos concretos, números, datas e fontes reais.
+8. Evite matérias antigas, genéricas ou sem novidade.
+9. Nunca prometa contemplação, retorno financeiro ou resultado garantido.
+10. Responda APENAS com JSON válido.
 
 Formato obrigatório:
 {{
@@ -154,11 +194,6 @@ def _carregar_json_resposta(
             "O JSON não contém a lista obrigatória 'temas'."
         )
 
-    if not temas:
-        raise ValueError(
-            "O Research Agent retornou uma lista vazia de temas."
-        )
-
     return dados
 
 
@@ -205,6 +240,7 @@ def _salvar_output(
 
 def _run_anthropic(
     hoje: str,
+    historico_tematico: str,
 ) -> ResearchOutput:
     print(
         "Buscando e analisando notícias via "
@@ -214,16 +250,9 @@ def _run_anthropic(
     user_prompt = f"""
 Data de hoje: {hoje}
 
-Pesquise notícias publicadas hoje ou nesta semana sobre:
+Pesquise notícias publicadas hoje ou nesta semana em diferentes eixos relevantes para o público de consórcio. Avalie também regulação, comportamento do consumidor, tendências de consumo, educação financeira, dados oficiais do setor e cases, sem se limitar a Selic, imóveis e automóveis.
 
-1. Consórcio no Brasil
-2. Taxa Selic e decisões do Copom
-3. Mercado imobiliário
-4. Mercado automotivo
-5. Crédito, financiamento e planejamento financeiro
-
-Selecione de 2 a 3 temas com maior potencial de conteúdo
-para o público de consórcio.
+Selecione até 3 temas realmente novos em relação à memória de 90 dias fornecida no prompt de sistema.
 
 Para cada tema:
 - use dados concretos;
@@ -234,7 +263,7 @@ Para cada tema:
 """.strip()
 
     resposta_raw = get_completion(
-        system=_build_system_prompt(),
+        system=_build_system_prompt(historico_tematico),
         user=user_prompt,
         max_tokens=4000,
         json_mode=True,
@@ -273,6 +302,7 @@ Para cada tema:
 
 def _run_tavily(
     hoje: str,
+    historico_tematico: str,
 ) -> ResearchOutput:
     from backend.core.search import search_web
 
@@ -344,14 +374,13 @@ Data de hoje: {hoje}
 Notícias encontradas:
 {noticias_formatadas}
 
-Com base nessas notícias, gere os 2 a 3 melhores temas
-de conteúdo para o público de consórcios.
+Com base nessas notícias, selecione até 3 temas realmente novos em relação à memória de 90 dias fornecida no prompt de sistema. Retorne menos temas quando os candidatos forem repetitivos ou insuficientemente sustentados.
 """.strip()
 
     print("Analisando notícias com LLM...")
 
     resposta_raw = get_completion(
-        system=_build_system_prompt(),
+        system=_build_system_prompt(historico_tematico),
         user=user_prompt,
         max_tokens=2200,
         json_mode=True,
@@ -399,11 +428,17 @@ def run() -> ResearchOutput:
     print("Buscando notícias...")
 
     try:
+        from backend.integrations.supabase import get_pesquisas
+
+        historico_tematico = _formatar_historico_tematico(
+            get_pesquisas("ultimos_90_dias")
+        )
+
         if SEARCH_PROVIDER == "anthropic":
-            return _run_anthropic(hoje)
+            return _run_anthropic(hoje, historico_tematico)
 
         if SEARCH_PROVIDER == "tavily":
-            return _run_tavily(hoje)
+            return _run_tavily(hoje, historico_tematico)
 
         raise ValueError(
             f"SEARCH_PROVIDER inválido: "

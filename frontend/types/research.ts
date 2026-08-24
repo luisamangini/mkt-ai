@@ -1,6 +1,5 @@
 export type ResearchPeriod =
   | "hoje"
-  | "ultimas_24h"
   | "ultimos_7_dias"
   | "ultimos_30_dias";
 

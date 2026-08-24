@@ -10,13 +10,13 @@ export function LeadStageCostCard({ stages }: LeadStageCostCardProps) {
   const minAmount = Math.min(...stages.map((stage) => stage.amount));
 
   return (
-    <section className="rounded-[10px] border border-black/10 bg-white">
-      <div className="border-b border-black/10 px-4 py-3">
-        <h2 className="text-sm font-semibold text-[#0A0A0A]">
+    <section className="rounded-[10px] border border-border bg-card">
+      <div className="border-b border-border px-4 py-3">
+        <h2 className="text-sm font-semibold text-foreground">
           Custo por Estágio do Lead
         </h2>
-        <p className="mt-1 text-[11px] text-[#717182]">
-          Custo médio acumulado em cada avanço do funil
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Custos persistidos no snapshot atual
         </p>
       </div>
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">

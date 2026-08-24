@@ -1,30 +1,26 @@
+import type {
+  ContentFormat,
+  ContentOrigin,
+  ContentPillar,
+  ContentStatus,
+} from "@/types/content";
+
 export type CalendarView = "weekly" | "monthly";
-
-export type CalendarPillar =
-  | "atualidades"
-  | "educacao_financeira"
-  | "mitos"
-  | "prova_social"
-  | "conversao";
-
-export type CalendarStatus =
-  | "publicado"
-  | "aprovacao"
-  | "agendado"
-  | "rascunho";
-
-export type CalendarFormat = "reel" | "carrossel" | "stories";
+export type CalendarPillar = ContentPillar;
+export type CalendarStatus = ContentStatus;
+export type CalendarFormat = ContentFormat;
 
 export interface CalendarContentItem {
   id: string;
+  executionId: string;
+  contentIndex: number;
   title: string;
   date: string;
   time?: string;
   format: CalendarFormat;
   pillar: CalendarPillar;
   status: CalendarStatus;
-  suggestedBestTime?: string;
-  sourceContentId?: string;
+  origin: ContentOrigin;
   description?: string;
 }
 
@@ -34,4 +30,9 @@ export interface CalendarDay {
   isToday?: boolean;
   isCurrentMonth?: boolean;
   items: CalendarContentItem[];
+}
+
+export interface ScheduleTarget {
+  executionId: string;
+  contentIndex: number;
 }

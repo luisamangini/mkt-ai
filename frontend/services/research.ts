@@ -1,6 +1,7 @@
 import type {
   ResearchCategory,
   ResearchInsight,
+  ResearchPeriod,
   ResearchRelevance,
   ResearchSource,
 } from "@/types/research";
@@ -313,10 +314,14 @@ function parseResearchApiResponse(payload: unknown): FetchResearchResult {
   throw new Error("Resposta da API não possui temas em formato reconhecido.");
 }
 
-export async function fetchResearchInsights(): Promise<FetchResearchResult> {
+export async function fetchResearchInsights(
+  period: ResearchPeriod,
+): Promise<FetchResearchResult> {
   const apiUrl = getApiUrl().replace(/\/$/, "");
-  const response = await fetch(`${apiUrl}/research`, {
+  const params = new URLSearchParams({ periodo: period });
+  const response = await fetch(`${apiUrl}/research?${params}`, {
     method: "GET",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",

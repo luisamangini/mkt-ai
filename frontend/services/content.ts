@@ -6,6 +6,7 @@ import type {
   ContentPillar,
   ContentStatus,
 } from "@/types/content";
+import { scheduleContent, unscheduleContent } from "@/services/calendar";
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
@@ -119,7 +120,10 @@ function normalizeContent(value: unknown): ContentItem {
     pillar: normalizePillar(readString(value, "pilar")),
     status: normalizeStatus(readString(value, "status_editorial")),
     createdAt: formatCreatedAt(generatedAt),
+    generatedAt,
     origin: normalizeOrigin(readString(value, "origin")),
+    scheduledDate: readString(value, "scheduled_date") || undefined,
+    scheduledTime: readString(value, "scheduled_time") || undefined,
     script: {
       hook: readString(value.roteiro, "hook"),
       development,
@@ -145,6 +149,7 @@ export async function fetchContentItems(): Promise<ContentItem[]> {
   const apiUrl = getApiUrl().replace(/\/$/, "");
   const response = await fetch(`${apiUrl}/content?periodo=ultimos_30_dias`, {
     method: "GET",
+    cache: "no-store",
     headers: { Accept: "application/json" },
   });
 
@@ -216,4 +221,28 @@ export async function deleteContentItem(item: ContentItem) {
     throw new Error("Resposta de exclusão do conteúdo é inválida.");
   }
   return payload.conteudos.map(normalizeContent);
+}
+
+export async function scheduleContentItem(
+  item: ContentItem,
+  date: string,
+  time?: string,
+): Promise<ContentItem> {
+  const scheduled = await scheduleContent(item, date, time);
+  return {
+    ...item,
+    scheduledDate: scheduled.date,
+    scheduledTime: scheduled.time,
+  };
+}
+
+export async function unscheduleContentItem(
+  item: ContentItem,
+): Promise<ContentItem> {
+  await unscheduleContent(item);
+  return {
+    ...item,
+    scheduledDate: undefined,
+    scheduledTime: undefined,
+  };
 }

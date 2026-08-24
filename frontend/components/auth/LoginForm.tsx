@@ -4,10 +4,7 @@ import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  authenticateMockUser,
-  saveStoredMockAuthUser,
-} from "@/lib/mock-auth";
+import { supabase } from "@/lib/supabase/client";
 
 type LoginErrors = {
   email?: string;
@@ -26,6 +23,23 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [credentialsError, setCredentialsError] = useState("");
   const [errors, setErrors] = useState<LoginErrors>({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSendingRecovery, setIsSendingRecovery] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState("");
+  const [recoveryError, setRecoveryError] = useState("");
+
+  function validateEmail() {
+    let emailError: string | undefined;
+
+    if (!email.trim()) {
+      emailError = "Informe seu e-mail.";
+    } else if (!isValidEmail(email)) {
+      emailError = "Digite um e-mail válido.";
+    }
+
+    setErrors((current) => ({ ...current, email: emailError }));
+    return !emailError;
+  }
 
   function validateForm() {
     const nextErrors: LoginErrors = {};
@@ -46,7 +60,7 @@ export function LoginForm() {
     return Object.keys(nextErrors).length === 0;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setCredentialsError("");
@@ -55,21 +69,67 @@ export function LoginForm() {
       return;
     }
 
-    const user = authenticateMockUser(email, password);
+    setIsLoading(true);
 
-    if (!user) {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
       setCredentialsError("E-mail ou senha inválidos.");
+      setIsLoading(false);
       return;
     }
 
-    saveStoredMockAuthUser(user);
-    router.push("/");
+    router.replace("/");
+    router.refresh();
+  }
+
+  async function handlePasswordRecovery() {
+    setRecoveryMessage("");
+    setRecoveryError("");
+
+    if (!validateEmail()) return;
+
+    setIsSendingRecovery(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: `${window.location.origin}/redefinir-senha`,
+        },
+      );
+
+      if (error) {
+        setRecoveryError(
+          "Não foi possível enviar o e-mail agora. Tente novamente.",
+        );
+        return;
+      }
+
+      setRecoveryMessage(
+        "Enviamos um link para redefinir sua senha. Verifique seu e-mail.",
+      );
+    } catch {
+      setRecoveryError(
+        "Não foi possível enviar o e-mail agora. Tente novamente.",
+      );
+    } finally {
+      setIsSendingRecovery(false);
+    }
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      autoComplete="off"
+      noValidate
+      className="space-y-5"
+    >
       <div>
-        <label htmlFor="email" className="text-[11px] font-medium text-[#0A0A0A]">
+        <label htmlFor="email" className="text-[11px] font-medium text-foreground">
           E-mail
         </label>
         <input
@@ -79,13 +139,16 @@ export function LoginForm() {
           onChange={(event) => {
             setEmail(event.target.value);
             setCredentialsError("");
+            setRecoveryMessage("");
+            setRecoveryError("");
+            setErrors((current) => ({ ...current, email: undefined }));
           }}
           placeholder="seu@email.com"
-          autoComplete="email"
+          autoComplete="off"
           aria-invalid={Boolean(errors.email)}
           aria-describedby={errors.email ? "email-error" : undefined}
-          className={`mt-1.5 h-10 w-full rounded-md border bg-white px-3 text-sm text-[#0A0A0A] outline-none transition-colors placeholder:text-[#717182]/70 focus:border-[#0A0A0A] focus-visible:ring-2 focus-visible:ring-[#0A0A0A]/10 ${
-            errors.email ? "border-red-300" : "border-black/10"
+          className={`mt-1.5 h-10 w-full rounded-md border bg-background px-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 ${
+            errors.email ? "border-red-300" : "border-input"
           }`}
         />
         {errors.email ? (
@@ -98,13 +161,13 @@ export function LoginForm() {
       <div>
         <label
           htmlFor="password"
-          className="text-[11px] font-medium text-[#0A0A0A]"
+          className="text-[11px] font-medium text-foreground"
         >
           Senha
         </label>
         <div
-          className={`mt-1.5 flex h-10 items-center rounded-md border bg-white transition-colors focus-within:border-[#0A0A0A] focus-within:ring-2 focus-within:ring-[#0A0A0A]/10 ${
-            errors.password ? "border-red-300" : "border-black/10"
+          className={`mt-1.5 flex h-10 items-center rounded-md border bg-background transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20 ${
+            errors.password ? "border-red-300" : "border-input"
           }`}
         >
           <input
@@ -116,16 +179,16 @@ export function LoginForm() {
               setCredentialsError("");
             }}
             placeholder="Digite sua senha"
-            autoComplete="current-password"
+            autoComplete="new-password"
             aria-invalid={Boolean(errors.password)}
             aria-describedby={errors.password ? "password-error" : undefined}
-            className="h-full min-w-0 flex-1 rounded-md bg-transparent px-3 text-sm text-[#0A0A0A] outline-none placeholder:text-[#717182]/70"
+            className="h-full min-w-0 flex-1 rounded-md bg-transparent px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/70"
           />
           <button
             type="button"
             onClick={() => setShowPassword((current) => !current)}
             aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
-            className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#717182] hover:bg-gray-50 hover:text-[#0A0A0A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A0A0A]"
+            className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
             {showPassword ? (
               <EyeOff className="h-4 w-4" strokeWidth={1.8} />
@@ -142,7 +205,7 @@ export function LoginForm() {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-[#717182]">
+        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-muted-foreground">
           <input
             type="checkbox"
             checked={rememberMe}
@@ -151,23 +214,38 @@ export function LoginForm() {
           />
           Lembrar de mim
         </label>
-        <a
-          href="#"
-          className="text-[11px] font-medium text-[#0A0A0A] hover:underline"
+        <button
+          type="button"
+          onClick={handlePasswordRecovery}
+          disabled={isSendingRecovery}
+          className="text-[11px] font-medium text-foreground hover:underline"
         >
-          Esqueci minha senha
-        </a>
+          {isSendingRecovery ? "Enviando..." : "Esqueci minha senha"}
+        </button>
       </div>
 
       {credentialsError ? (
         <p className="text-[11px] text-red-500">{credentialsError}</p>
       ) : null}
 
+      {recoveryMessage ? (
+        <p className="text-[11px] text-green-600" role="status">
+          {recoveryMessage}
+        </p>
+      ) : null}
+
+      {recoveryError ? (
+        <p className="text-[11px] text-red-500" role="alert">
+          {recoveryError}
+        </p>
+      ) : null}
+
       <Button
         type="submit"
-        className="h-10 w-full rounded-md bg-[#030213] text-[12px] font-medium text-white hover:bg-[#030213]/90"
+        disabled={isLoading}
+        className="h-10 w-full rounded-md bg-primary text-[12px] font-medium text-primary-foreground hover:bg-primary/90"
       >
-        Entrar
+        {isLoading ? "Entrando..." : "Entrar"}
       </Button>
     </form>
   );

@@ -28,20 +28,20 @@ const barHeights = [
 
 export function LoginBrandPanel() {
   return (
-    <section className="hidden min-h-[calc(100vh-96px)] flex-1 items-center rounded-[10px] border border-black/10 bg-gray-50 px-8 py-8 lg:flex xl:px-12">
+    <section className="hidden min-h-screen flex-1 items-center rounded-[10px] border border-border bg-muted px-8 py-8 lg:flex xl:px-12">
       <div className="mx-auto w-full max-w-[560px]">
-        <div className="mb-12 inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-medium text-[#0A0A0A]">
-          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#030213] text-[10px] font-semibold text-white">
+        <div className="mb-12 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground">
+          <span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary text-[10px] font-semibold text-primary-foreground">
             C
           </span>
           ConsorIA
         </div>
 
         <div className="max-w-[500px]">
-          <h1 className="text-3xl font-semibold leading-tight text-[#0A0A0A] xl:text-4xl">
+          <h1 className="text-3xl font-semibold leading-tight text-foreground xl:text-4xl">
             Marketing inteligente, do conteúdo à conversão.
           </h1>
-          <p className="mt-4 text-sm leading-6 text-[#717182]">
+          <p className="mt-4 text-sm leading-6 text-muted-foreground">
             Centralize sua produção de conteúdo, acompanhe campanhas e gerencie
             oportunidades em uma única plataforma.
           </p>
@@ -54,9 +54,9 @@ export function LoginBrandPanel() {
             return (
               <div
                 key={benefit.label}
-                className="flex items-center gap-3 text-xs font-medium text-[#0A0A0A]"
+                className="flex items-center gap-3 text-xs font-medium text-foreground"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-black/10 bg-white text-[#717182]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground">
                   <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
                 </span>
                 {benefit.label}
@@ -66,29 +66,29 @@ export function LoginBrandPanel() {
         </div>
 
         <div className="mt-12 grid max-w-[500px] grid-cols-2 gap-3">
-          <div className="rounded-[10px] border border-black/10 bg-white p-4">
+          <div className="rounded-[10px] border border-border bg-card p-4">
             <div className="mb-5 flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[#717182]">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Campanhas
               </span>
-              <Megaphone className="h-4 w-4 text-[#717182]" strokeWidth={1.8} />
+              <Megaphone className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} />
             </div>
-            <div className="text-2xl font-semibold text-[#0A0A0A]">342</div>
-            <div className="mt-1 text-[11px] text-[#717182]">
+            <div className="text-2xl font-semibold text-foreground">342</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">
               leads em 30 dias
             </div>
           </div>
 
-          <div className="rounded-[10px] border border-black/10 bg-white p-4">
-            <div className="mb-5 text-[10px] font-semibold uppercase tracking-wide text-[#717182]">
+          <div className="rounded-[10px] border border-border bg-card p-4">
+            <div className="mb-5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               CRM
             </div>
-            <div className="text-2xl font-semibold text-[#0A0A0A]">89</div>
-            <div className="mt-1 text-[11px] text-[#717182]">qualificados</div>
+            <div className="text-2xl font-semibold text-foreground">89</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">qualificados</div>
           </div>
 
-          <div className="col-span-2 rounded-[10px] border border-black/10 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between text-[11px] text-[#717182]">
+          <div className="col-span-2 rounded-[10px] border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between text-[11px] text-muted-foreground">
               <span>Eficiência da verba</span>
               <span className="font-medium text-green-600">CPL -R$ 4,20</span>
             </div>

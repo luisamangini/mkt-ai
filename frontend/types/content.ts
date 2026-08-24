@@ -14,6 +14,8 @@ export type ContentStatus =
   | "descartado";
 
 export type ContentFilter = "todos" | Exclude<ContentStatus, "sem_status">;
+export type ContentPeriod = "hoje" | "ultimos_7_dias" | "ultimos_30_dias";
+export type ContentPillarFilter = "todos" | ContentPillar;
 export type ContentOrigin = "ai" | "manual";
 
 export interface ContentScript {
@@ -33,7 +35,10 @@ export interface ContentItem {
   pillar: ContentPillar;
   status: ContentStatus;
   createdAt: string;
+  generatedAt: string;
   origin: ContentOrigin;
+  scheduledDate?: string;
+  scheduledTime?: string;
   script: ContentScript;
   sourceResearchTitle?: string;
 }

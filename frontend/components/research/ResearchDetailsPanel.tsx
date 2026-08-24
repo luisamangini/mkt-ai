@@ -60,13 +60,13 @@ export function ResearchDetailsPanel({
   }
 
   return (
-    <aside className="flex min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-l border-black/10 bg-white">
-      <div className="flex items-start justify-between border-b border-black/10 px-5 py-4">
+    <aside className="flex min-h-0 w-[360px] shrink-0 flex-col overflow-hidden border-l border-border bg-card">
+      <div className="flex items-start justify-between border-b border-border px-5 py-4">
         <div className="min-w-0">
-          <h2 className="truncate text-sm font-semibold leading-5 text-[#0A0A0A]">
+          <h2 className="truncate text-sm font-semibold leading-5 text-foreground">
             {insight.category}
           </h2>
-          <p className="mt-1 text-[11px] leading-4 text-[#717182]">
+          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
             {insight.sourceName} · {insight.publishedAgo}
           </p>
         </div>
@@ -74,7 +74,7 @@ export function ResearchDetailsPanel({
           type="button"
           onClick={onClose}
           aria-label="Fechar detalhe da pesquisa"
-          className="flex h-8 w-8 items-center justify-center rounded-md text-[#717182] transition-colors hover:bg-gray-50 hover:text-[#0A0A0A]"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <X className="h-4 w-4" strokeWidth={1.8} />
         </button>
@@ -99,8 +99,8 @@ export function ResearchDetailsPanel({
         </DetailSection>
 
         <DetailSection title="Ângulo sugerido">
-          <div className="rounded-[10px] border border-black/10 bg-gray-50 p-3">
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold leading-4 text-[#0A0A0A]">
+          <div className="rounded-[10px] border border-border bg-muted p-3">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold leading-4 text-foreground">
               <FileText className="h-4 w-4" strokeWidth={1.8} />
               Conteúdo
             </div>
@@ -109,7 +109,7 @@ export function ResearchDetailsPanel({
         </DetailSection>
 
         <DetailSection title="Pilar sugerido">
-          <span className="inline-flex rounded-md border border-black/10 bg-white px-2 py-1 text-[11px] font-medium leading-4 text-[#0A0A0A]">
+          <span className="inline-flex rounded-md border border-border bg-card px-2 py-1 text-[11px] font-medium leading-4 text-foreground">
             {insight.pillar}
           </span>
         </DetailSection>
@@ -122,10 +122,10 @@ export function ResearchDetailsPanel({
                 href={source.url}
                 target={source.url === "#" ? undefined : "_blank"}
                 rel={source.url === "#" ? undefined : "noreferrer"}
-                className="flex items-center justify-between gap-3 rounded-md border border-black/10 px-3 py-2 text-[11px] leading-4 text-[#0A0A0A] hover:bg-gray-50"
+                className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-[11px] leading-4 text-foreground hover:bg-muted"
               >
                 <span className="truncate">{source.title}</span>
-                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#717182]" />
+                <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
               </a>
             ))}
           </div>
@@ -149,7 +149,7 @@ export function ResearchDetailsPanel({
           <button
             type="button"
             onClick={handleCopySummary}
-            className="flex h-9 w-full items-center justify-center gap-2 rounded-md px-3 text-[11px] font-medium text-[#717182] hover:bg-gray-50"
+            className="flex h-9 w-full items-center justify-center gap-2 rounded-md px-3 text-[11px] font-medium text-muted-foreground hover:bg-muted"
           >
             <Copy className="h-3.5 w-3.5" strokeWidth={1.8} />
             {copyFeedback}
@@ -169,10 +169,10 @@ function DetailSection({
 }) {
   return (
     <section>
-      <h3 className="mb-2 text-[10px] font-semibold uppercase leading-3 tracking-wide text-[#717182]">
+      <h3 className="mb-2 text-[10px] font-semibold uppercase leading-3 tracking-wide text-muted-foreground">
         {title}
       </h3>
-      <div className="text-[11px] leading-5 text-[#717182]">{children}</div>
+      <div className="text-[11px] leading-5 text-muted-foreground">{children}</div>
     </section>
   );
 }
