@@ -33,12 +33,42 @@ export function SetPasswordForm({ mode }: SetPasswordFormProps) {
   useEffect(() => {
     let active = true;
 
-    void supabase.auth.getUser().then(({ data: { user } }) => {
+    async function checkSession() {
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+
+      if (accessToken && refreshToken) {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (!active) return;
+
+        if (!error && data.session) {
+          window.history.replaceState(null, "", window.location.pathname);
+          setHasValidSession(true);
+          setIsCheckingSession(false);
+          return;
+        }
+
+        setHasValidSession(false);
+        setIsCheckingSession(false);
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
       if (!active) return;
 
       setHasValidSession(Boolean(user));
       setIsCheckingSession(false);
-    });
+    }
+
+    void checkSession();
 
     const {
       data: { subscription },
