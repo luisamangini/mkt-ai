@@ -400,9 +400,57 @@ class ContentEditInput(BaseModel):
     hashtags: list[str]
 
 
+class ManualContentInput(BaseModel):
+    titulo: str
+    formato: str
+    pilar: str
+    texto: str
+    cta: Optional[str] = None
+    observacoes: Optional[str] = None
+
+
 class ContentScheduleInput(BaseModel):
     date: str
     time: Optional[str] = None
+
+
+@app.post("/content/manual")
+def post_manual_content(
+    payload: ManualContentInput,
+    authorization: str | None = Header(default=None),
+):
+    _verificar_token(authorization)
+    formatos = {"reel", "carrossel", "stories"}
+    pilares = {
+        "educacao_financeira": "Educação Financeira",
+        "prova_social": "Prova Social",
+        "mitos": "Mitos e Verdades",
+        "atualidades": "Atualidades e Mercado",
+        "conversao": "Conversão",
+    }
+    if not payload.titulo.strip() or not payload.texto.strip():
+        raise HTTPException(status_code=400, detail="Título e conteúdo são obrigatórios.")
+    if payload.formato not in formatos:
+        raise HTTPException(status_code=400, detail="Formato de conteúdo inválido.")
+    if payload.pilar not in pilares:
+        raise HTTPException(status_code=400, detail="Pilar de conteúdo inválido.")
+    try:
+        from backend.integrations.supabase import salvar_conteudo_manual
+
+        conteudo = salvar_conteudo_manual({
+            "titulo": payload.titulo.strip(),
+            "formato": payload.formato,
+            "pilar": pilares[payload.pilar],
+            "texto": payload.texto.strip(),
+            "cta": (payload.cta or "").strip(),
+            "observacoes": (payload.observacoes or "").strip(),
+        })
+        return {"status": "ok", "conteudo": conteudo}
+    except Exception:
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível criar o conteúdo manual.",
+        )
 
 
 @app.patch("/content/{execution_id}/{content_index}/status")

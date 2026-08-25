@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   deleteContentItem,
+  createManualContent,
   fetchContentItems,
   scheduleContentItem,
   unscheduleContentItem,
@@ -14,15 +15,18 @@ import type {
   ContentEditPayload,
   ContentFilter,
   ContentItem,
+  ContentOrigin,
   ContentPeriod,
   ContentPillarFilter,
   ContentStatus,
+  ManualContentInput,
 } from "@/types/content";
 
 import { ContentDetailsPanel } from "./ContentDetailsPanel";
 import { ContentFilters } from "./ContentFilters";
 import { ContentTable } from "./ContentTable";
 import { ContentToolbar } from "./ContentToolbar";
+import { ManualContentModal } from "./ManualContentModal";
 
 const filters: ContentFilter[] = [
   "todos",
@@ -33,11 +37,13 @@ const filters: ContentFilter[] = [
 
 export function ContentPageContent() {
   const [activeFilter, setActiveFilter] = useState<ContentFilter>("todos");
+  const [origin, setOrigin] = useState<ContentOrigin>("ai");
   const [period, setPeriod] = useState<ContentPeriod>("hoje");
   const [pillar, setPillar] = useState<ContentPillarFilter>("todos");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [manualModalOpen, setManualModalOpen] = useState(false);
   const [selectedContent, setSelectedContent] = useState<ContentItem | null>(
     null,
   );
@@ -89,13 +95,23 @@ export function ContentPageContent() {
     });
   }, [items, period, pillar]);
 
+  const originCounts = useMemo(() => ({
+    ai: periodAndPillarItems.filter((item) => item.origin === "ai").length,
+    manual: periodAndPillarItems.filter((item) => item.origin === "manual").length,
+  }), [periodAndPillarItems]);
+
+  const originItems = useMemo(
+    () => periodAndPillarItems.filter((item) => item.origin === origin),
+    [origin, periodAndPillarItems],
+  );
+
   const counts = useMemo(() => {
     return filters.reduce<Record<ContentFilter, number>>(
       (accumulator, filter) => {
         accumulator[filter] =
           filter === "todos"
-            ? periodAndPillarItems.length
-            : periodAndPillarItems.filter((item) => item.status === filter).length;
+            ? originItems.length
+            : originItems.filter((item) => item.status === filter).length;
         return accumulator;
       },
       {
@@ -105,15 +121,15 @@ export function ContentPageContent() {
         descartado: 0,
       },
     );
-  }, [periodAndPillarItems]);
+  }, [originItems]);
 
   const filteredItems = useMemo(() => {
     if (activeFilter === "todos") {
-      return periodAndPillarItems;
+      return originItems;
     }
 
-    return periodAndPillarItems.filter((item) => item.status === activeFilter);
-  }, [activeFilter, periodAndPillarItems]);
+    return originItems.filter((item) => item.status === activeFilter);
+  }, [activeFilter, originItems]);
 
   function replaceItem(updated: ContentItem) {
     setItems((current) =>
@@ -157,6 +173,17 @@ export function ContentPageContent() {
     replaceItem(await unscheduleContentItem(selectedContent));
   }
 
+  async function handleCreateManual(input: ManualContentInput) {
+    const created = await createManualContent(input);
+    setItems((current) => [created, ...current]);
+    setOrigin("manual");
+    setPeriod("hoje");
+    setPillar("todos");
+    setActiveFilter("todos");
+    setSelectedContent(created);
+    setManualModalOpen(false);
+  }
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 overflow-hidden">
       <ContentFilters
@@ -174,7 +201,12 @@ export function ContentPageContent() {
             setActiveFilter(filter);
             setSelectedContent(null);
           }}
+          onNewContent={() => setManualModalOpen(true)}
         />
+
+        <div className="flex gap-1 border-b border-border px-5 pt-3">
+          {([{ value: "ai", label: "Gerados por IA" }, { value: "manual", label: "Criados manualmente" }] as const).map((tab) => <button key={tab.value} type="button" onClick={() => { setOrigin(tab.value); setSelectedContent(null); }} className={`border-b-2 px-3 pb-3 text-[11px] font-medium transition-colors ${origin === tab.value ? "border-foreground text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{tab.label}<span className="ml-1.5 text-[10px] text-muted-foreground">{originCounts[tab.value]}</span></button>)}
+        </div>
 
         <div className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">
           {filteredItems.length} resultados
@@ -212,6 +244,7 @@ export function ContentPageContent() {
           onUnschedule={handleUnschedule}
         />
       ) : null}
+      {manualModalOpen ? <ManualContentModal onClose={() => setManualModalOpen(false)} onCreate={handleCreateManual} /> : null}
     </div>
   );
 }

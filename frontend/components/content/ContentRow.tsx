@@ -29,13 +29,14 @@ export function ContentRow({ item, selected, onSelect }: ContentRowProps) {
     <tr
       onClick={() => onSelect(item)}
       className={`cursor-pointer border-b border-border/50 transition-colors hover:bg-muted ${
-        selected ? "bg-muted" : "bg-card"
+        selected ? "bg-muted" : item.origin === "manual" ? "bg-violet-50/30 dark:bg-violet-950/10" : "bg-card"
       }`}
     >
       <td className="min-w-[280px] px-5 py-4">
         <div className="line-clamp-2 text-[12px] font-medium leading-5 text-foreground">
           {item.title}
         </div>
+        {item.origin === "manual" ? <span className="mt-1.5 inline-flex rounded-md border border-violet-200/70 bg-violet-50 px-1.5 py-0.5 text-[9px] font-medium text-violet-700 dark:border-violet-800/50 dark:bg-violet-950/30 dark:text-violet-300">Manual</span> : null}
       </td>
       <td className="min-w-[120px] px-3 py-4">
         <ContentFormatBadge format={item.format} />

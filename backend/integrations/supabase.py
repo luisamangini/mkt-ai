@@ -369,6 +369,57 @@ def salvar_conteudo(
     return resp.data[0] if resp.data else {}
 
 
+def salvar_conteudo_manual(dados: dict) -> dict:
+    """Persiste um conteúdo manual na mesma estrutura dos resultados do Content Agent."""
+    client = get_client()
+    gerado_em = datetime.now(timezone.utc).isoformat()
+    hoje = datetime.now(timezone.utc).date().isoformat()
+    roteiro = {
+        "data": hoje,
+        "gerado_em": gerado_em,
+        "titulo_interno": dados["titulo"],
+        "formato": dados["formato"],
+        "pilar": dados["pilar"],
+        "compliance_checou": False,
+        "revisao_humana": "pendente",
+        "hashtags": [],
+        "roteiro": {
+            "hook": "",
+            "desenvolvimento": [dados["texto"]],
+            "slides": None,
+            "cta": dados.get("cta") or "",
+        },
+        "observacoes": dados.get("observacoes") or "",
+        "status_editorial": "sem_status",
+        "origin": "manual",
+    }
+    metadata = {
+        "data": hoje,
+        "gerado_em": gerado_em,
+        "total_roteiros": 1,
+        "research_execution_id": None,
+        "roteiros": [roteiro],
+    }
+    resposta = client.table("execucoes").insert({
+        "timestamp": gerado_em,
+        "agent": "content_result",
+        "status": "ok",
+        "resultado": "1 conteúdo manual persistido",
+        "erro": "",
+        "metadata": metadata,
+        "ambiente": ENV,
+    }).execute()
+    if not resposta.data:
+        raise RuntimeError("O conteúdo manual não foi persistido.")
+    execution_id = str(resposta.data[0]["id"])
+    return {
+        **roteiro,
+        "id": f"{execution_id}:0",
+        "execution_id": execution_id,
+        "content_index": 0,
+    }
+
+
 def get_conteudos(periodo: str = "ultimos_30_dias") -> list[dict]:
     """Consulta e achata conteúdos persistidos, sem executar agentes."""
     agora = datetime.now(timezone.utc)

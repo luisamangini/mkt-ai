@@ -18,6 +18,15 @@ export type ContentPeriod = "hoje" | "ultimos_7_dias" | "ultimos_30_dias";
 export type ContentPillarFilter = "todos" | ContentPillar;
 export type ContentOrigin = "ai" | "manual";
 
+export interface ManualContentInput {
+  title: string;
+  format: ContentFormat;
+  pillar: ContentPillar;
+  text: string;
+  cta?: string;
+  notes?: string;
+}
+
 export interface ContentScript {
   hook: string;
   development: string[];
@@ -41,6 +50,7 @@ export interface ContentItem {
   scheduledTime?: string;
   script: ContentScript;
   sourceResearchTitle?: string;
+  notes?: string;
 }
 
 export type ContentEditPayload = Pick<ContentItem, "title" | "script">;

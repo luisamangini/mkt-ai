@@ -76,10 +76,12 @@ export function ContentDetailsPanel({
   const isCarousel = item.format === "carrossel";
 
   useEffect(() => {
-    setScheduleDate(item.scheduledDate ?? "");
-    setScheduleTime(item.scheduledTime ?? "");
-    setScheduleError("");
-    setConfirmingUnschedule(false);
+    void Promise.resolve().then(() => {
+      setScheduleDate(item.scheduledDate ?? "");
+      setScheduleTime(item.scheduledTime ?? "");
+      setScheduleError("");
+      setConfirmingUnschedule(false);
+    });
   }, [item.id, item.scheduledDate, item.scheduledTime]);
 
   async function handleStatusChange(status: ContentStatus) {
@@ -174,8 +176,10 @@ export function ContentDetailsPanel({
         <div className="flex flex-wrap gap-2">
           <ContentFormatBadge format={item.format} />
           <span className="inline-flex h-6 items-center rounded-md border border-border px-2 text-[11px] font-medium">{pillarLabel[item.pillar]}</span>
-          <span className="inline-flex h-6 items-center rounded-md bg-muted px-2 text-[10px] text-muted-foreground">Gerado por IA</span>
+          <span className={`inline-flex h-6 items-center rounded-md px-2 text-[10px] ${item.origin === "manual" ? "border border-violet-200/70 bg-violet-50 text-violet-700 dark:border-violet-800/50 dark:bg-violet-950/30 dark:text-violet-300" : "bg-muted text-muted-foreground"}`}>{item.origin === "manual" ? "Criado manualmente" : "Gerado por IA"}</span>
         </div>
+
+        {item.notes ? <section className="rounded-[10px] border border-border p-3"><h3 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Observações</h3><p className="mt-2 whitespace-pre-wrap text-[11px] leading-5 text-muted-foreground">{item.notes}</p></section> : null}
 
         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           Status

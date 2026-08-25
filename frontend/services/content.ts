@@ -2,6 +2,7 @@ import type {
   ContentEditPayload,
   ContentFormat,
   ContentItem,
+  ManualContentInput,
   ContentOrigin,
   ContentPillar,
   ContentStatus,
@@ -124,6 +125,7 @@ function normalizeContent(value: unknown): ContentItem {
     origin: normalizeOrigin(readString(value, "origin")),
     scheduledDate: readString(value, "scheduled_date") || undefined,
     scheduledTime: readString(value, "scheduled_time") || undefined,
+    notes: readString(value, "observacoes") || undefined,
     script: {
       hook: readString(value.roteiro, "hook"),
       development,
@@ -143,6 +145,22 @@ async function parseContentResponse(response: Response): Promise<ContentItem> {
     throw new Error("Resposta de atualização do conteúdo é inválida.");
   }
   return normalizeContent(payload.conteudo);
+}
+
+export async function createManualContent(input: ManualContentInput): Promise<ContentItem> {
+  const apiUrl = getApiUrl().replace(/\/$/, "");
+  return parseContentResponse(await fetch(`${apiUrl}/content/manual`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      titulo: input.title,
+      formato: input.format,
+      pilar: input.pillar,
+      texto: input.text,
+      cta: input.cta || null,
+      observacoes: input.notes || null,
+    }),
+  }));
 }
 
 export async function fetchContentItems(): Promise<ContentItem[]> {
