@@ -72,8 +72,8 @@ def invite_auth_user(email: str) -> None:
         message = str(error).lower()
         if "already" in message or "registered" in message or "exists" in message:
             raise AuthUserAlreadyExistsError from error
-print(f"Erro Supabase invite: {repr(error)}")
-raise RuntimeError("Não foi possível enviar o convite pelo Supabase.") from error
+        raise RuntimeError("Não foi possível enviar o convite pelo Supabase.") from error
+
 
 def delete_auth_user(user_id: str) -> None:
     """Remove pelo Admin API o usuário identificado por uma sessão validada."""
